@@ -1,4 +1,26 @@
 {
-    "build": { "dockerfile": "Dockerfile" },
-    "forwardPorts": [ 3000 ]
+    "name": "computer-vision",
+    "image": "hmcvlab/computer-vision:3.2.7",
+    // Use 'forwardPorts' to make a list of ports inside the container available locally.
+    // "forwardPorts": [],
+    "postCreateCommand": "pip install -U pip && pip install -e .",
+
+    // Configure tool-specific properties.
+    // "customizations": {},
+    "containerEnv": {
+        "DISPLAY": "${localEnv:DISPLAY}"
+    },
+
+    // Uncomment to connect as root instead. More info: https://aka.ms/dev-containers-non-root.
+    // "remoteUser": "root"
+    "runArgs": [
+        "--gpus=all",
+        "--net=host",
+        "--shm-size=20g"
+    ],
+    "mounts": [
+        "source=/mnt,target=/mnt,type=bind,consistency=cached",
+        "source=/tmp/.X11-unix,target=/tmp/.X11-unix,type=bind,consistency=cached",
+        "source=/media/${localEnv:USER},target=/media,type=bind,consistency=cached"
+    ]
 }
