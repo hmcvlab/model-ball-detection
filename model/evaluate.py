@@ -21,11 +21,6 @@ ROOT = Path(__file__).parent
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-def _collate_fn(batch):
-    """Default collate function."""
-    return tuple(zip(*batch))
-
-
 def main(args: argparse.Namespace):
     """Entrypoint: run --help for details."""
 
@@ -40,10 +35,8 @@ def main(args: argparse.Namespace):
     loader = aux.load_dataset(args.holdout, transform, shuffle=False)
 
     # Load model
-    model_settings = {"weights": None, "weights_backbone": None}
-    model_data = torch.load(args.model, weights_only=False, map_location=DEVICE)
-    model = models.detection.maskrcnn_resnet50_fpn(**model_settings)
-    model.load_state_dict(model_data)
+    model = aux.load_model_from_file(args.model)
+    model.eval()
 
 
 if __name__ == "__main__":
