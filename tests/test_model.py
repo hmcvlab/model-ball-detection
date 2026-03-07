@@ -30,11 +30,27 @@ from ball_detector import model
 def test_load_from_torch(architecture):
     """Test loading model from torchvision."""
     # Act
-    ai_model = model.load_from_torch(architecture)
+    ai_model = model.load_from_torchvision(architecture)
 
     # Assert
     assert isinstance(ai_model, model.ModelData)
     assert ai_model.architecture == architecture
+
+
+@pytest.mark.parametrize(
+    ("repo", "model_name"),
+    [
+        ("ultralytics/yolov5", "yolov5s"),
+    ],
+)
+def test_load_from_torchhub(repo, model_name):
+    """Test loading model from torchhub."""
+    # Act
+    ai_model = model.load_from_torchhub(repo, model_name)
+
+    # Assert
+    assert isinstance(ai_model, model.ModelData)
+    assert ai_model.architecture == model_name
 
 
 @pytest.mark.parametrize(
@@ -48,7 +64,7 @@ def test_load_from_torch(architecture):
 def test_load_from_file(architecture, tmp_path):
     """Load a model from torch, save and try to load from file."""
     # Arrange
-    ai_model = model.load_from_torch(architecture)
+    ai_model = model.load_from_torchvision(architecture)
     filename = model.filename(tmp_path, architecture)
 
     # Act

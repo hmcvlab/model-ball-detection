@@ -11,6 +11,7 @@ from pathlib import Path
 import torch
 from loguru import logger
 from torchvision import models
+from torchvision.transforms import v2
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -21,6 +22,8 @@ class ModelData:
 
     ai_model: torch.nn.Module
     architecture: str
+    source: str
+    transforms: torch.nn.Module
     dataset: str = "coco"
     with_augmentation: bool = False
 
@@ -34,7 +37,7 @@ def save(file: Path, weights: torch.nn.Module, model_data: ModelData):
     torch.save(output, file)
 
 
-def load_from_torch(architecture: str) -> ModelData:
+def load_from_torchvision(architecture: str) -> ModelData:
     """Load models either from file or from torchvision."""
 
     # Check if architecture is supported:
@@ -45,14 +48,62 @@ def load_from_torch(architecture: str) -> ModelData:
         )
 
     model = models.get_model(architecture, weights="DEFAULT")
-
     model = model.to(DEVICE)
-    return ModelData(ai_model=model, architecture=architecture)
+
+    # Get weights to load transforms
+    logger.info(f"Loading weights for {architecture}")
+    weights_enum = models.get_model_weights(architecture)
+    w_str = f"{weights_enum.__name__}.COCO_V1"
+    logger.info(f"Loading weights {w_str}")
+    transforms = models.get_weight(w_str).transforms()
+
+    # Generate transforms
+    transforms = v2.Compose(
+        [
+            v2.ToTensor(),
+            v2.Resize((255, 255)),  # Adjust the input size according to your needs
+        ]
+    )
+
+    return ModelData(
+        ai_model=model,
+        architecture=architecture,
+        source="torch",
+        transforms=transforms,
+    )
+
+
+def load_from_torchhub(repo: str, model_name: str):
+    """Load model from torchhub."""
+
+    repo_models = torch.hub.list(repo)
+    if model_name not in repo_models:
+        raise ValueError(f"Model {model_name} is not in:" + "\n".join(repo_models))
+
+    model = torch.hub.load(repo, model_name, pretrained=True, trust_repo=True)
+    model = model.to(DEVICE)
+
+    transforms = v2.Compose(
+        [
+            # v2.ToTensor(),
+            # v2.Resize((320, 640)),  # Adjust the input size according to your needs
+            v2.ToPILImage(),
+        ]
+    )
+    # transforms = None
+
+    return ModelData(
+        ai_model=model,
+        architecture=model_name,
+        source="torchhub",
+        transforms=transforms,
+    )
 
 
 def load_from_file(file_model: Path) -> ModelData:
     """Load model from pth file."""
     model_data = torch.load(file_model, weights_only=False, map_location=DEVICE)
+    model_data.setdefault("source", file_model.stem)
     model_data = ModelData(**model_data)
     return model_data
 

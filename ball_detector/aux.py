@@ -46,7 +46,9 @@ class Augmentation:
 
 def _collate_fn(batch):
     """Default collate function."""
-    return tuple(zip(*batch))
+    batches = tuple(zip(*batch))
+    # return torch.stack(batches[0]), batches[1]
+    return batches
 
 
 def to_device(images, targets):
@@ -57,11 +59,9 @@ def to_device(images, targets):
     return images, targets
 
 
-def load_dataset(file: Path, transform=None, transforms=None, shuffle=True):
+def load_dataset(file: Path, transforms=None, shuffle=True):
     """Wrapper for torch-based dataset"""
-    dataset_coco = datasets.CocoDetection(
-        file.parent, str(file), transform=transform, transforms=transforms
-    )
+    dataset_coco = datasets.CocoDetection(file.parent, str(file), transforms=transforms)
     dataset_coco = datasets.wrap_dataset_for_transforms_v2(
         dataset_coco, target_keys=("boxes", "labels", "image_id")
     )

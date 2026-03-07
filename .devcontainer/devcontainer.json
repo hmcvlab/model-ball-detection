@@ -12,7 +12,7 @@
     // },
 
     // Uncomment to connect as root instead. More info: https://aka.ms/dev-containers-non-root.
-    // "remoteUser": "root"
+    "remoteUser": "ubuntu",
     "runArgs": [
         "--gpus=all",
         "--net=host",

@@ -26,37 +26,76 @@ def main(args: argparse.Namespace):
 
     # Load model
     if args.file_model:
-        model_data = model.load_from_file(args.file_model)
-        model_name = args.file_model.stem
+        ai_models = [
+            model.load_from_file(file)
+            for file in args.file_model.parent.glob(args.file_model.name)
+        ]
     elif args.torch_model:
-        model_data = model.load_from_torch(args.torch_model)
-        model_name = args.torch_model
+        ai_models = [model.load_from_torchvision(args.torch_model)]
+    elif args.yolov5_model:
+        ai_models = [model.load_from_torchhub("ultralytics/yolov5", args.yolov5_model)]
     else:
         raise ValueError("Either --file-model or --default-model must be set.")
-    transforms = aux.add_transform(None, train=False)
 
-    # Load dataset
-    loader = aux.load_dataset(args.holdout, transforms=transforms, shuffle=False)
+    file_benchmark = (
+        aux.DATA_ROOT / f"analysis/{args.holdout.parent.stem}_benchmark.csv"
+    )
+    for model_data in ai_models:
+        # Load dataset
+        loader = aux.load_dataset(
+            args.holdout, transforms=model_data.transforms, shuffle=False
+        )
 
-    # Run inference
-    results = _inference(model_data.ai_model, loader)
+        # Run inference
+        if args.yolov5_model:
+            results = _inference_yolo(model_data.ai_model, loader)
+        else:
+            results = _inference_torch(model_data.ai_model, loader)
 
-    # Save results
-    coco_gt = COCO(args.holdout)
-    stats = {
-        "datetime": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "model": model_name,
-        "architecture": model_data.architecture,
-    }
-    stats = stats | run_coco(coco_gt, results)
-    df_stats = pd.DataFrame(stats, index=[0])
-    file_benchmark = args.holdout.parent / "benchmark.csv"
-    df_stats.to_csv(file_benchmark, index=False, mode="a")
+        # Save results
+        coco_gt = COCO(args.holdout)
+        stats = {
+            "datetime": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "source": model_data.source,
+            "architecture": model_data.architecture,
+        }
+        stats = stats | run_coco(coco_gt, results)
+        df_stats = pd.DataFrame(stats, index=[0])
+        df_stats.to_csv(
+            file_benchmark, index=False, mode="a", header=not file_benchmark.exists()
+        )
 
     logger.info("Done!")
 
 
-def _inference(ai_model, loader) -> list:
+def _inference_yolo(
+    ai_model: torch.nn.Module, loader: torch.utils.data.DataLoader
+) -> list:
+    """Runs COCO evaluation and returns results in coco compatible format."""
+    ai_model.eval()
+
+    results = []
+    for images, targets in tqdm(loader, desc="Evaluating model"):
+
+        with torch.no_grad():
+            outputs = ai_model(images)
+
+        for out, target in zip(outputs.pandas().xywh, targets):
+            for _, row in out.iterrows():
+                bbox = row[["xcenter", "ycenter", "width", "height"]].tolist()
+                results.append(
+                    {
+                        "image_id": int(target["image_id"]),
+                        "category_id": int(row["class"]),
+                        "bbox": bbox,
+                        "score": float(row["confidence"]),
+                    }
+                )
+
+    return results
+
+
+def _inference_torch(ai_model, loader) -> list:
     """Runs COCO evaluation and prints results to stdout.
 
     Args:
@@ -68,9 +107,9 @@ def _inference(ai_model, loader) -> list:
     results = []
     for images, targets in tqdm(loader, desc="Evaluating model"):
 
-        images = list(image.to(model.DEVICE) for image in images)
+        images_tensor = torch.stack(images).to(model.DEVICE)
         with torch.no_grad():
-            outputs = ai_model(images)
+            outputs = ai_model(images_tensor)
 
         for out, target in zip(outputs, targets):
             # Convert boxes using torch
@@ -104,6 +143,7 @@ def run_coco(coco_gt: COCO, results: list) -> dict:
     coco_eval.summarize()
 
     # Convert stats to dict
+    coco_eval.stats = coco_eval.stats.round(3)
     return {
         "ap_mean": coco_eval.stats[0],
         "ap_50": coco_eval.stats[1],
@@ -128,12 +168,12 @@ if __name__ == "__main__":
         default=aux.DATA_ROOT / "datasets/accurate-balls/holdout.coco.json",
     )
 
-    group = parser.add_mutually_exclusive_group(required=False)
+    group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--file-model", type=Path)
     group.add_argument(
         "--torch-model",
         choices=models.list_models(models.detection),
-        default="ssd300_vgg16",
     )
+    group.add_argument("--yolov5-model", choices=torch.hub.list("ultralytics/yolov5"))
 
     main(parser.parse_args())

@@ -23,11 +23,12 @@ ROOT = Path(__file__).parent
 class TrainParameter:
     """Dataclass for model parameters."""
 
-    epochs: int = 5
+    epochs: int = 10
     batch_size: int = 4
     lr: float = 0.0001
     weight_decay: float = 0.01
     warmup_epochs: int = 0
+    momentum: float = 0.9
 
 
 @dataclass
@@ -59,7 +60,9 @@ def main(args: argparse.Namespace):
     if args.file_model:
         model_data = model.load_from_file(args.file_model)
     elif args.torch_model:
-        model_data = model.load_from_torch(args.torch_model)
+        model_data = model.load_from_torchvision(args.torch_model)
+    elif args.yolov5_model:
+        model_data = model.load_from_torchhub("ultralytics/yolov5", args.yolov5_model)
     else:
         raise ValueError("Either --file-model or --default-model must be set.")
 
@@ -82,11 +85,12 @@ def _train(
 ) -> TrainResults:
     """Train a torch model using the given data loaders."""
 
-    optimizer = torch.optim.AdamW(
-        [p for p in ai_model.parameters() if p.requires_grad],
-        lr=params.lr,
-        weight_decay=params.weight_decay,
-    )
+    optimizer = _smart_optimizer(ai_model, params)
+    # optimizer = torch.optim.AdamW(
+    #     [p for p in ai_model.parameters() if p.requires_grad],
+    #     lr=params.lr,
+    #     weight_decay=params.weight_decay,
+    # )
 
     # Set up learning rate scheduler
     warmup_steps = params.warmup_epochs * len(train_loader)
@@ -150,6 +154,37 @@ def _train(
     return result
 
 
+def _smart_optimizer(ai_model, params: TrainParameter):
+    """Initializes YOLOv5 smart optimizer with 3 parameter groups for different decay
+    configurations.
+
+    Groups are 0) weights with decay, 1) weights no decay, 2) biases no decay.
+    """
+    g = [], [], []  # optimizer parameter groups
+    bn = tuple(
+        v for k, v in torch.nn.__dict__.items() if "Norm" in k
+    )  # normalization layers, i.e. BatchNorm2d()
+    for v in ai_model.modules():
+        for p_name, p in v.named_parameters(recurse=0):
+            if p_name == "bias":  # bias (no decay)
+                g[2].append(p)
+            elif p_name == "weight" and isinstance(v, bn):  # weight (no decay)
+                g[1].append(p)
+            else:
+                g[0].append(p)  # weight (with decay)
+
+    optimizer = torch.optim.AdamW(
+        g[2], lr=params.lr, betas=(params.momentum, 0.999), weight_decay=0.0
+    )
+    optimizer.add_param_group(
+        {"params": g[0], "weight_decay": params.weight_decay}
+    )  # add g0 with weight_decay
+    optimizer.add_param_group(
+        {"params": g[1], "weight_decay": 0.0}
+    )  # add g1 (BatchNorm2d weights)
+    return optimizer
+
+
 def _validate(ai_model, loader: torch.utils.data.DataLoader):
     """Run validation loop and return average validation loss.
 
@@ -175,7 +210,9 @@ def _validate(ai_model, loader: torch.utils.data.DataLoader):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dataset", type=Path)
+    parser.add_argument(
+        "--dataset", type=Path, default=aux.DATA_ROOT / "datasets/accurate-balls"
+    )
     parser.add_argument(
         "--dir-output", type=Path, default=aux.DATA_ROOT / "models/torch"
     )
@@ -183,5 +220,6 @@ if __name__ == "__main__":
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--file-model", type=Path)
     group.add_argument("--torch-model", choices=models.list_models(models.detection))
+    group.add_argument("--yolov5-model", choices=torch.hub.list("ultralytics/yolov5"))
 
     main(parser.parse_args())
