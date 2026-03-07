@@ -8,12 +8,15 @@ from pathlib import Path
 
 import torch
 from loguru import logger
-from torchvision import datasets, models
+from torchvision import datasets
 from torchvision.transforms import v2
+
+from ball_detector import model
 
 SEED = 42
 
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+DATA_ROOT = Path("/mnt/data")
 
 
 # pylint: disable=too-many-instance-attributes
@@ -48,18 +51,21 @@ def _collate_fn(batch):
 
 def to_device(images, targets):
     """Move images and targets to device."""
-    keys = ["boxes", "labels", "masks"]
-    images = [img.to(DEVICE) for img in images]
-    targets = [{k: t[k].to(DEVICE) for k in keys} for t in targets]
+    keys = ["boxes", "labels"]
+    images = [img.to(model.DEVICE) for img in images]
+    targets = [{k: t[k].to(model.DEVICE) for k in keys} for t in targets]
     return images, targets
 
 
-def load_dataset(file: Path, transform, shuffle=True):
+def load_dataset(file: Path, transform=None, transforms=None, shuffle=True):
     """Wrapper for torch-based dataset"""
-    dataset_coco = datasets.CocoDetection(file.parent, str(file), transform=transform)
-    dataset_coco = datasets.wrap_dataset_for_transforms_v2(
-        dataset_coco, target_keys=("boxes", "labels", "masks", "image_id")
+    dataset_coco = datasets.CocoDetection(
+        file.parent, str(file), transform=transform, transforms=transforms
     )
+    dataset_coco = datasets.wrap_dataset_for_transforms_v2(
+        dataset_coco, target_keys=("boxes", "labels", "image_id")
+    )
+
     return torch.utils.data.DataLoader(
         dataset_coco,
         batch_size=6,
@@ -67,34 +73,6 @@ def load_dataset(file: Path, transform, shuffle=True):
         num_workers=8,
         collate_fn=_collate_fn,
     )
-
-
-def load_model_default(architecture: str):
-    """Load models either from file or from torchvision."""
-
-    # Check if architecture is supported:
-    det_models = models.list_models(module=models.detection)
-    if architecture not in det_models:
-        raise ValueError(
-            f"Architecture {architecture} is not in:" + "\n".join(det_models)
-        )
-
-    model = models.get_model(architecture, weights="DEFAULT")
-
-    model = model.to(DEVICE)
-    return {"model": model, "metadata": {"architecture": architecture}}
-
-
-def load_model_from_file(file_model: Path):
-    """Load model from pth file."""
-    model_settings = {"weights": None, "weights_backbone": None}
-    model_data = torch.load(file_model, weights_only=False, map_location=DEVICE)
-
-    model = models.detection.maskrcnn_resnet50_fpn(**model_settings)
-    model.load_state_dict(model_data)
-
-    model = model.to(DEVICE)
-    return {"model": model, "metadata": model_data["metadata"]}
 
 
 def add_transform(params: Augmentation | None, train: bool):

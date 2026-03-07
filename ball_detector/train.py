@@ -5,16 +5,16 @@ Copyright (c) 2026 Munich University of Applied Sciences
 
 import argparse
 from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
+import pandas as pd
 import torch
-from loguru import logger as log
-from torchvision import datasets, models
-from torchvision.transforms import v2
+from loguru import logger
+from torchvision import models
 from tqdm import tqdm
 
-from model import aux
+from ball_detector import aux, model
 
 ROOT = Path(__file__).parent
 
@@ -30,8 +30,17 @@ class TrainParameter:
     warmup_epochs: int = 0
 
 
+@dataclass
+class TrainResults:
+    """Dataclass to store training results, including metrics and logs."""
+
+    weights: torch.nn.Module | None = None
+    logs: list = field(default_factory=list)
+
+
 def main(args: argparse.Namespace):
     """Entrypoint: run --help for details."""
+    logger.info("Start training...")
 
     # Load transformations
     aug_params = aux.Augmentation()
@@ -48,16 +57,21 @@ def main(args: argparse.Namespace):
 
     # Load model
     if args.file_model:
-        model_data = aux.load_model_from_file(args.file_model)
-    elif args.default_model:
-        model_data = aux.load_model_default(args.default_model)
+        model_data = model.load_from_file(args.file_model)
+    elif args.torch_model:
+        model_data = model.load_from_torch(args.torch_model)
     else:
         raise ValueError("Either --file-model or --default-model must be set.")
 
-    model = model_data["model"]
-    result = _train(model, t_loader, v_loader, params=TrainParameter())
+    result = _train(model_data.ai_model, t_loader, v_loader, params=TrainParameter())
 
-    # Add model type to metadata
+    # Export model
+    file = model.filename(args.dir_output, model_data.architecture)
+    model.save(file, result.weights, model_data)
+
+    # Export logs
+    df = pd.DataFrame(result.logs)
+    df.to_csv(file.with_suffix(".csv"), index=False)
 
 
 def _train(
@@ -65,7 +79,7 @@ def _train(
     train_loader,
     val_loader,
     params: TrainParameter,
-) -> dict:
+) -> TrainResults:
     """Train a torch model using the given data loaders."""
 
     optimizer = torch.optim.AdamW(
@@ -89,8 +103,8 @@ def _train(
     else:
         scheduler = None
 
-    result = {"weights": None, "metrics": {}, "logs": []}
-    result["metrics"]["best_val_loss"] = float("inf")
+    result = TrainResults()
+    best_loss = float("inf")
     for epoch in tqdm(range(params.epochs), desc="Epoch", unit="epoch"):
         running_loss = 0.0
         progress_bar = tqdm(train_loader, desc="Batch", unit="batch", leave=False)
@@ -120,7 +134,7 @@ def _train(
         n_batches = len(train_loader)
         avg_val_loss = _validate(ai_model, val_loader)
 
-        result["logs"].append(
+        result.logs.append(
             {
                 "step": (epoch + 1) * n_batches,
                 "epoch": epoch,
@@ -129,10 +143,9 @@ def _train(
             }
         )
 
-        if avg_val_loss < result["metrics"]["best_val_loss"]:
-            result["metrics"]["best_val_loss"] = avg_val_loss
-            result["metrics"]["best_epoch"] = epoch
-            result["weights"] = deepcopy(ai_model.state_dict())
+        if avg_val_loss < best_loss:
+            best_loss = avg_val_loss
+            result.weights = deepcopy(ai_model.state_dict())
 
     return result
 
@@ -163,9 +176,12 @@ def _validate(ai_model, loader: torch.utils.data.DataLoader):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset", type=Path)
+    parser.add_argument(
+        "--dir-output", type=Path, default=aux.DATA_ROOT / "models/torch"
+    )
 
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--file-model", type=Path)
-    group.add_argument("--default-model", choices=models.list_models(models.detection))
+    group.add_argument("--torch-model", choices=models.list_models(models.detection))
 
     main(parser.parse_args())

@@ -1,5 +1,5 @@
 [project]
-name = "model"
+name = "ball_detector"
 version = "0.0.0"
 keywords = ["evaluate", "neural", "networks"]
 description = "Library to train and evaluate neural networks."
