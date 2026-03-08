@@ -13,6 +13,8 @@ from loguru import logger
 from torchvision import models
 from torchvision.transforms import v2
 
+from ball_detector import aux
+
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
@@ -80,6 +82,7 @@ def load_from_torchhub(repo: str, model_name: str):
     if model_name not in repo_models:
         raise ValueError(f"Model {model_name} is not in:" + "\n".join(repo_models))
 
+    torch.hub.set_dir(aux.DATA_ROOT / "models/torchhub")
     model = torch.hub.load(repo, model_name, pretrained=True, trust_repo=True)
     model = model.to(DEVICE)
 

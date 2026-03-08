@@ -14,8 +14,6 @@ from torchvision.transforms import v2
 from ball_detector import model
 
 SEED = 42
-
-
 DATA_ROOT = Path("/mnt/data")
 
 
