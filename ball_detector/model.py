@@ -13,8 +13,6 @@ from loguru import logger
 from torchvision import models
 from torchvision.transforms import v2
 
-from ball_detector import aux
-
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
@@ -73,7 +71,7 @@ def load_from_torchvision(architecture: str) -> ModelData:
         architecture=architecture,
         source="torch",
         transforms=transforms,
-        cats={idx: name for idx, name in enumerate(cats)},
+        cats=dict(enumerate(cats)),
     )
 
 
@@ -84,7 +82,9 @@ def load_from_torchhub(repo: str, model_name: str):
     if model_name not in repo_models:
         raise ValueError(f"Model {model_name} is not in:" + "\n".join(repo_models))
 
-    torch.hub.set_dir(aux.DATA_ROOT / "models/torchhub")
+    dir_models = Path("tmp/models/torchhub")
+    dir_models.mkdir(parents=True, exist_ok=True)
+    torch.hub.set_dir(dir_models)
     model = torch.hub.load(repo, model_name, pretrained=True, trust_repo=True)
     model = model.to(DEVICE)
 
@@ -103,6 +103,12 @@ def load_from_file(file_model: Path) -> ModelData:
     model_data = torch.load(file_model, weights_only=False, map_location=DEVICE)
     model_data.setdefault("source", file_model.stem)
     model_data = ModelData(**model_data)
+
+    model_data.transforms = [
+        v2.ToTensor(),
+        v2.Resize((255, 255)),  # Adjust the input size according to your needs
+    ]
+
     return model_data
 
 

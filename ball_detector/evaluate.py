@@ -57,7 +57,7 @@ def main(args: argparse.Namespace):
 
         # Add name to results
         df = pd.DataFrame(results)
-        df["name"] = df["category_id"].map(model_data.ai_model.names)
+        df["name"] = df["category_id"].map(model_data.cats)
         results = df.to_dict("records")
 
         # Run COCO evaluation
@@ -204,6 +204,7 @@ def save_sample_with_draw_boxes(file_gt: Path, results: list[dict], image_id: in
 
     # Extract boxes and labels
     df = df[df["image_id"] == image_id]
+    df = df[df["score"] > min(0.5, df["score"].max())]
     boxes = torch.Tensor(df["bbox"].tolist())
     boxes = ops.box_convert(boxes, in_fmt="xywh", out_fmt="xyxy")
 

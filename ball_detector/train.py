@@ -4,6 +4,7 @@ Copyright (c) 2026 Munich University of Applied Sciences
 """
 
 import argparse
+import json
 from copy import deepcopy
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -42,6 +43,8 @@ class TrainResults:
 def main(args: argparse.Namespace):
     """Entrypoint: run --help for details."""
     logger.info("Start training...")
+    t_file = args.dataset / "train.coco.json"
+    v_file = args.dataset / "valid.coco.json"
 
     # Load transformations
     aug_params = aux.Augmentation()
@@ -56,18 +59,20 @@ def main(args: argparse.Namespace):
     else:
         raise ValueError("Either --file-model or --default-model must be set.")
 
+    # Patch model_data
+    with open(t_file, "r", encoding="utf-8") as f:
+        cats = json.load(f)["categories"]
+    model_data.cats = {c["id"]: c["name"] for c in cats}
+
+    # Load transforms
     t_transforms = model_data.transforms
     if args.augment:
         model_data.with_augmentation = True
         t_transforms += aux.augmentation_transforms(aug_params)
 
     # Load dataset
-    t_loader = aux.load_dataset(
-        args.dataset / "train.coco.json", t_transforms, shuffle=True
-    )
-    v_loader = aux.load_dataset(
-        args.dataset / "valid.coco.json", model_data.transforms, shuffle=False
-    )
+    t_loader = aux.load_dataset(t_file, t_transforms, shuffle=True)
+    v_loader = aux.load_dataset(v_file, model_data.transforms, shuffle=False)
 
     result = _train(model_data.ai_model, t_loader, v_loader, params=TrainParameter())
 
@@ -272,6 +277,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--dir-output", type=Path, default=aux.DATA_ROOT / "models/torch"
     )
+    parser.add_argument("--augment", action="store_true", default=False)
 
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--file-model", type=Path)
