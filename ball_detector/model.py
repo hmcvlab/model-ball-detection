@@ -25,13 +25,15 @@ class ModelData:
     ai_model: torch.nn.Module
     architecture: str
     source: str
-    transforms: torch.nn.Module
-    dataset: str = "coco"
+    transforms: list[v2.Transform]
+    cats: dict[int, str]
     with_augmentation: bool = False
 
 
 def save(file: Path, weights: torch.nn.Module, model_data: ModelData):
     """Structure data for export."""
+    if not isinstance(weights, torch.nn.Module):
+        raise ValueError("Weights must be a torch.nn.Module")
 
     # Generate output structure
     model_data.ai_model = weights
@@ -56,22 +58,22 @@ def load_from_torchvision(architecture: str) -> ModelData:
     logger.info(f"Loading weights for {architecture}")
     weights_enum = models.get_model_weights(architecture)
     w_str = f"{weights_enum.__name__}.COCO_V1"
-    logger.info(f"Loading weights {w_str}")
-    transforms = models.get_weight(w_str).transforms()
+    weights = models.get_weight(w_str)
+    cats = weights.meta["categories"]
 
     # Generate transforms
-    transforms = v2.Compose(
-        [
-            v2.ToTensor(),
-            v2.Resize((255, 255)),  # Adjust the input size according to your needs
-        ]
-    )
+    # transforms = weights.transforms()
+    transforms = [
+        v2.ToTensor(),
+        v2.Resize((255, 255)),  # Adjust the input size according to your needs
+    ]
 
     return ModelData(
         ai_model=model,
         architecture=architecture,
         source="torch",
         transforms=transforms,
+        cats={idx: name for idx, name in enumerate(cats)},
     )
 
 
@@ -86,25 +88,18 @@ def load_from_torchhub(repo: str, model_name: str):
     model = torch.hub.load(repo, model_name, pretrained=True, trust_repo=True)
     model = model.to(DEVICE)
 
-    transforms = v2.Compose(
-        [
-            # v2.ToTensor(),
-            # v2.Resize((320, 640)),  # Adjust the input size according to your needs
-            v2.ToPILImage(),
-        ]
-    )
-    # transforms = None
-
     return ModelData(
         ai_model=model,
         architecture=model_name,
         source="torchhub",
-        transforms=transforms,
+        transforms=[v2.ToPILImage()],
+        cats=model.names,
     )
 
 
 def load_from_file(file_model: Path) -> ModelData:
     """Load model from pth file."""
+    logger.info(f"Loading model from {file_model}")
     model_data = torch.load(file_model, weights_only=False, map_location=DEVICE)
     model_data.setdefault("source", file_model.stem)
     model_data = ModelData(**model_data)

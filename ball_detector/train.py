@@ -35,7 +35,7 @@ class TrainParameter:
 class TrainResults:
     """Dataclass to store training results, including metrics and logs."""
 
-    weights: torch.nn.Module | None = None
+    final_model: torch.nn.Module | None = None
     logs: list = field(default_factory=list)
 
 
@@ -45,32 +45,35 @@ def main(args: argparse.Namespace):
 
     # Load transformations
     aug_params = aux.Augmentation()
-    t_transform = aux.add_transform(aug_params, train=True)
-    v_transform = aux.add_transform(aug_params, train=False)
-
-    # Load dataset
-    t_loader = aux.load_dataset(
-        args.dataset / "train.coco.json", t_transform, shuffle=True
-    )
-    v_loader = aux.load_dataset(
-        args.dataset / "valid.coco.json", v_transform, shuffle=False
-    )
 
     # Load model
     if args.file_model:
         model_data = model.load_from_file(args.file_model)
     elif args.torch_model:
         model_data = model.load_from_torchvision(args.torch_model)
-    elif args.yolov5_model:
-        model_data = model.load_from_torchhub("ultralytics/yolov5", args.yolov5_model)
+    elif args.yolo_model:
+        model_data = model.load_from_torchhub("ultralytics/yolov5", args.yolo_model)
     else:
         raise ValueError("Either --file-model or --default-model must be set.")
+
+    t_transforms = model_data.transforms
+    if args.augment:
+        model_data.with_augmentation = True
+        t_transforms += aux.augmentation_transforms(aug_params)
+
+    # Load dataset
+    t_loader = aux.load_dataset(
+        args.dataset / "train.coco.json", t_transforms, shuffle=True
+    )
+    v_loader = aux.load_dataset(
+        args.dataset / "valid.coco.json", model_data.transforms, shuffle=False
+    )
 
     result = _train(model_data.ai_model, t_loader, v_loader, params=TrainParameter())
 
     # Export model
     file = model.filename(args.dir_output, model_data.architecture)
-    model.save(file, result.weights, model_data)
+    model.save(file, result.final_model, model_data)
 
     # Export logs
     df = pd.DataFrame(result.logs)
@@ -85,12 +88,11 @@ def _train(
 ) -> TrainResults:
     """Train a torch model using the given data loaders."""
 
-    optimizer = _smart_optimizer(ai_model, params)
-    # optimizer = torch.optim.AdamW(
-    #     [p for p in ai_model.parameters() if p.requires_grad],
-    #     lr=params.lr,
-    #     weight_decay=params.weight_decay,
-    # )
+    optimizer = torch.optim.AdamW(
+        [p for p in ai_model.parameters() if p.requires_grad],
+        lr=params.lr,
+        weight_decay=params.weight_decay,
+    )
 
     # Set up learning rate scheduler
     warmup_steps = params.warmup_epochs * len(train_loader)
@@ -149,7 +151,61 @@ def _train(
 
         if avg_val_loss < best_loss:
             best_loss = avg_val_loss
-            result.weights = deepcopy(ai_model.state_dict())
+            result.final_model = deepcopy(ai_model)
+
+    return result
+
+
+def _train_yolo(
+    ai_model: torch.nn.Module,
+    train_loader,
+    val_loader,
+    params: TrainParameter,
+) -> TrainResults:
+    """Train a torch model using the given data loaders."""
+
+    optimizer = _smart_optimizer(ai_model, params)
+
+    result = TrainResults()
+    best_loss = float("inf")
+    for epoch in tqdm(range(params.epochs), desc="Epoch", unit="epoch"):
+        running_loss = 0.0
+        progress_bar = tqdm(train_loader, desc="Batch", unit="batch", leave=False)
+
+        ai_model.train()
+        for step, (images, targets) in enumerate(progress_bar):
+            # images, targets = aux.to_device(images, targets)
+
+            loss_dict = ai_model(images, targets)
+            losses = sum(loss for loss in loss_dict.values())
+
+            optimizer.zero_grad()
+            losses.backward()
+            optimizer.step()
+
+            running_loss += losses.item()
+
+            # Save logs
+            current_lr = optimizer.param_groups[0]["lr"]
+            progress_bar.set_postfix(
+                loss=running_loss / (step + 1), lr=f"{current_lr:.2e}"
+            )
+
+        n_batches = len(train_loader)
+        avg_val_loss = _validate(ai_model, val_loader)
+
+        result.logs.append(
+            {
+                "step": (epoch + 1) * n_batches,
+                "epoch": epoch,
+                "loss": running_loss / n_batches,
+                "val_loss": avg_val_loss,
+            }
+        )
+
+        if avg_val_loss < best_loss:
+            best_loss = avg_val_loss
+            result.final_model = deepcopy(ai_model.state_dict())
 
     return result
 
@@ -220,6 +276,6 @@ if __name__ == "__main__":
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--file-model", type=Path)
     group.add_argument("--torch-model", choices=models.list_models(models.detection))
-    group.add_argument("--yolov5-model", choices=torch.hub.list("ultralytics/yolov5"))
+    group.add_argument("--yolo-model", choices=torch.hub.list("ultralytics/yolov5"))
 
     main(parser.parse_args())

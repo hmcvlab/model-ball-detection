@@ -64,13 +64,17 @@ def test_load_from_torchhub(repo, model_name):
 def test_load_from_file(architecture, tmp_path):
     """Load a model from torch, save and try to load from file."""
     # Arrange
-    ai_model = model.load_from_torchvision(architecture)
+    model_data = model.load_from_torchvision(architecture)
     filename = model.filename(tmp_path, architecture)
 
     # Act
-    model.save(filename, ai_model.ai_model, ai_model)
-    ai_model = model.load_from_file(filename)
+    model.save(filename, model_data.ai_model, model_data)
+    model_data = model.load_from_file(filename)
 
     # Assert
-    assert isinstance(ai_model, model.ModelData)
-    assert ai_model.architecture == architecture
+    assert isinstance(model_data, model.ModelData)
+    assert model_data.architecture == architecture
+    try:
+        model_data.ai_model.eval()
+    except AttributeError:
+        pytest.fail("Model loading failed!")

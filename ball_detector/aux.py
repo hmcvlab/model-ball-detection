@@ -7,7 +7,6 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import torch
-from loguru import logger
 from torchvision import datasets
 from torchvision.transforms import v2
 
@@ -57,9 +56,11 @@ def to_device(images, targets):
     return images, targets
 
 
-def load_dataset(file: Path, transforms=None, shuffle=True):
+def load_dataset(file: Path, transforms: list[v2.Transform], shuffle=True):
     """Wrapper for torch-based dataset"""
-    dataset_coco = datasets.CocoDetection(file.parent, str(file), transforms=transforms)
+    dataset_coco = datasets.CocoDetection(
+        file.parent, str(file), transforms=v2.Compose(transforms)
+    )
     dataset_coco = datasets.wrap_dataset_for_transforms_v2(
         dataset_coco, target_keys=("boxes", "labels", "image_id")
     )
@@ -73,40 +74,32 @@ def load_dataset(file: Path, transforms=None, shuffle=True):
     )
 
 
-def add_transform(params: Augmentation | None, train: bool):
+def augmentation_transforms(params: Augmentation) -> list[v2.Transform]:
     """Generate torch transformation object for validate and train."""
-    transform = [v2.ToImage(), v2.ToDtype(torch.float32, scale=True)]
-    if params is None or not train:
-        return v2.Compose(transform)
+    transform = []
 
-    # Processing that should only be done during training
-    if train:
-        # Geometric augemntations
-        if params.p_hflip is not None:
-            transform += [v2.RandomHorizontalFlip(params.p_hflip)]
+    # Geometric augmentations
+    if params.p_hflip is not None:
+        transform += [v2.RandomHorizontalFlip(params.p_hflip)]
 
-        if params.p_vflip is not None:
-            transform += [v2.RandomVerticalFlip(params.p_vflip)]
+    if params.p_vflip is not None:
+        transform += [v2.RandomVerticalFlip(params.p_vflip)]
 
-        if params.p_zoom is not None:
-            transform += [v2.RandomZoomOut(fill=0, p=params.p_zoom, side_range=[1, 2])]
+    if params.p_zoom is not None:
+        transform += [v2.RandomZoomOut(fill=0, p=params.p_zoom, side_range=[1, 2])]
 
-        if params.p_distort is not None:
-            transform += [v2.RandomPhotometricDistort(p=params.p_distort)]
-        transform += [v2.SanitizeBoundingBoxes()]
+    if params.p_distort is not None:
+        transform += [v2.RandomPhotometricDistort(p=params.p_distort)]
+    transform += [v2.SanitizeBoundingBoxes()]
 
-        # Pixel augementations must be after convert to float
-        if params.jitter_brightness is not None and params.jitter_hue is not None:
-            jitter = v2.ColorJitter(
-                brightness=params.jitter_brightness, hue=params.jitter_hue
-            )
-            transform += [v2.RandomApply([jitter], p=params.p_jitter)]
+    # Pixel augmentations must be after convert to float
+    if params.jitter_brightness is not None and params.jitter_hue is not None:
+        jitter = v2.ColorJitter(
+            brightness=params.jitter_brightness, hue=params.jitter_hue
+        )
+        transform += [v2.RandomApply([jitter], p=params.p_jitter)]
 
-        if params.noise_sigma is not None:
-            transform += [v2.GaussianNoise(sigma=params.noise_sigma)]
+    if params.noise_sigma is not None:
+        transform += [v2.GaussianNoise(sigma=params.noise_sigma)]
 
-    # Normalization has to be done last for training and validation
-    if params.normalize_mean is not None and params.normalize_std is not None:
-        logger.warning("Normalization has been loaded BUT IS NOT APPLIED")
-
-    return v2.Compose(transform)
+    return transform
