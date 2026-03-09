@@ -59,18 +59,11 @@ def load_from_torchvision(architecture: str) -> ModelData:
     weights = models.get_weight(w_str)
     cats = weights.meta["categories"]
 
-    # Generate transforms
-    # transforms = weights.transforms()
-    transforms = [
-        v2.ToTensor(),
-        v2.Resize((255, 255)),  # Adjust the input size according to your needs
-    ]
-
     return ModelData(
         ai_model=model,
         architecture=architecture,
         source="torch",
-        transforms=transforms,
+        transforms=[v2.ToTensor(), v2.ToDtype(torch.float)],
         cats=dict(enumerate(cats)),
     )
 
@@ -106,7 +99,7 @@ def load_from_file(file_model: Path) -> ModelData:
 
     model_data.transforms = [
         v2.ToTensor(),
-        v2.Resize((255, 255)),  # Adjust the input size according to your needs
+        # v2.Resize((255, 255)),  # Adjust the input size according to your needs
     ]
 
     return model_data

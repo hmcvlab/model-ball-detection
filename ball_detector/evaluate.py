@@ -45,9 +45,8 @@ def main(args: argparse.Namespace):
     )
     for model_data in ai_models:
         # Load dataset
-        loader = aux.load_dataset(
-            args.holdout, transforms=model_data.transforms, shuffle=False
-        )
+        transforms = model_data.transforms
+        loader = aux.load_dataset(args.holdout, transforms=transforms, shuffle=False)
 
         # Run inference
         if args.yolo_model:
@@ -113,7 +112,7 @@ def _inference_yolo(
             outputs = ai_model(images)
 
         for out, target in zip(outputs.xyxy, targets):
-            boxes = ops.box_convert(out[:, :4], in_fmt="xyxy", out_fmt="xywh")
+            boxes = ops.box_convert(out[:, :4], in_fmt="xyxy", out_fmt="cxcywh")
             for row, box in zip(out, boxes):
                 results.append(
                     {
@@ -139,13 +138,15 @@ def _inference_torch(ai_model, loader) -> list:
     results = []
     for images, targets in tqdm(loader, desc="Evaluating model"):
 
-        images_tensor = torch.stack(images).to(model.DEVICE)
+        images, target = aux.to_device(images, targets)
         with torch.no_grad():
-            outputs = ai_model(images_tensor)
+            outputs = ai_model(images)
 
         for out, target in zip(outputs, targets):
             # Convert boxes using torch
-            out["boxes"] = ops.box_convert(out["boxes"], in_fmt="xyxy", out_fmt="xywh")
+            out["boxes"] = ops.box_convert(
+                out["boxes"], in_fmt="xyxy", out_fmt="cxcywh"
+            )
 
             outputs = {k: v.detach().cpu() for k, v in out.items()}
             for box, label, score in zip(out["boxes"], out["labels"], out["scores"]):
@@ -204,9 +205,9 @@ def save_sample_with_draw_boxes(file_gt: Path, results: list[dict], image_id: in
 
     # Extract boxes and labels
     df = df[df["image_id"] == image_id]
-    df = df[df["score"] > min(0.5, df["score"].max())]
+    df = df[df["score"] >= min(0.5, df["score"].max())]
     boxes = torch.Tensor(df["bbox"].tolist())
-    boxes = ops.box_convert(boxes, in_fmt="xywh", out_fmt="xyxy")
+    boxes = ops.box_convert(boxes, in_fmt="cxcywh", out_fmt="xyxy")
 
     # Extract labels with cat name and score
     labels = [f"#{name}: {score:.2f}" for name, score in zip(df["name"], df["score"])]
