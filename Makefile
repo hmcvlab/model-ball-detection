@@ -17,7 +17,7 @@ test:
 		--user ubuntu \
 		-w /app \
 		-v .:/app \
-		-t hmcvlab/computer-vision:3.2.7 \
+		-t hmcvlab/computer-vision:latest \
 		bash -c "pip install -e . && pytest"
 
 install-hooks:

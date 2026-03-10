@@ -61,7 +61,7 @@ def load_from_torchvision(name: str) -> ModelData:
         ai_model=model,
         name=name,
         source="torch",
-        transforms=[v2.ToTensor(), v2.ToDtype(torch.float)],
+        transforms=[v2.ToImage(), v2.ToDtype(torch.float, scale=True)],
         cats=dict(enumerate(cats)),
     )
 
@@ -94,7 +94,7 @@ def load_from_file(file_model: Path) -> ModelData:
     model_data = torch.load(file_model, weights_only=False, map_location=DEVICE)
     model_data["source"] = "file"
     model_data["name"] = file_model.stem
-    model_data["transforms"] = [v2.ToTensor(), v2.ToDtype(torch.float)]
+    model_data["transforms"] = [v2.ToImage(), v2.ToDtype(torch.float, scale=True)]
     return ModelData(**model_data)
 
 
