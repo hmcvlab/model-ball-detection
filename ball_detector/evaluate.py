@@ -61,20 +61,26 @@ def main(args: argparse.Namespace):
 
         # Run COCO evaluation
         coco_gt = COCO(args.holdout)
-        save_sample_with_draw_boxes(args.holdout, results)
         results = _adapt_results_to_coco(results, coco_gt)
         stats_coco = run_coco(coco_gt, results)
 
         # Save results
         stats = {
             "datetime": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "name": model_data.name,
             "source": model_data.source,
-            "architecture": model_data.architecture,
         } | stats_coco
         df_stats = pd.DataFrame(stats, index=[0])
         df_stats.to_csv(
             file_benchmark, index=False, mode="a", header=not file_benchmark.exists()
         )
+
+        # Save samples
+        file_out = Path("tmp") / f"{model_data.name}-{model_data.source}.jpg"
+        file_out.parent.mkdir(parents=True, exist_ok=True)
+        logger.info(f"Output file: {file_out}")
+        img = sample_with_draw_boxes(args.holdout, results)
+        io.write_jpeg(img, str(file_out))
 
     logger.info("Done!")
 
@@ -83,12 +89,15 @@ def _adapt_results_to_coco(results: list[dict], coco_gt: COCO) -> list[dict]:
     """The categories in the model might be different from the ones in the COCO dataset.
     Hence we want to select certain categories 'sports ball' and 'ball' only and adapt
     their ID's to match the ones in the dataset."""
+    df = pd.DataFrame(results)
+    if "sports ball" not in df["name"].unique():
+        logger.warning("No 'sports ball' found in results -> skipping adaptation.")
+        return results
 
     cats_gt = {cat["name"]: cat["id"] for cat in coco_gt.cats.values()}
 
     # Map 'sport ball' -> 'ball'
     cats_gt["sports ball"] = cats_gt["ball"]
-    df = pd.DataFrame(results)
     df["new_id"] = df["name"].map(cats_gt)
 
     # Replace ID's
@@ -112,7 +121,7 @@ def _inference_yolo(
             outputs = ai_model(images)
 
         for out, target in zip(outputs.xyxy, targets):
-            boxes = ops.box_convert(out[:, :4], in_fmt="xyxy", out_fmt="cxcywh")
+            boxes = ops.box_convert(out[:, :4], in_fmt="xyxy", out_fmt="xywh")
             for row, box in zip(out, boxes):
                 results.append(
                     {
@@ -144,9 +153,7 @@ def _inference_torch(ai_model, loader) -> list:
 
         for out, target in zip(outputs, targets):
             # Convert boxes using torch
-            out["boxes"] = ops.box_convert(
-                out["boxes"], in_fmt="xyxy", out_fmt="cxcywh"
-            )
+            out["boxes"] = ops.box_convert(out["boxes"], in_fmt="xyxy", out_fmt="xywh")
 
             outputs = {k: v.detach().cpu() for k, v in out.items()}
             for box, label, score in zip(out["boxes"], out["labels"], out["scores"]):
@@ -193,35 +200,50 @@ def run_coco(coco_gt: COCO, results: list) -> dict:
     }
 
 
-def save_sample_with_draw_boxes(file_gt: Path, results: list[dict], image_id: int = -1):
+def sample_with_draw_boxes(
+    file_gt: Path, results: list[dict], image_id: int = -1
+) -> torch.Tensor:
     """Draw results into image tensor."""
     coco_gt = COCO(file_gt)
     df = pd.DataFrame(results)
+    all_colors = _colors(int(df["category_id"].max()) + 1)
     while image_id not in df["image_id"].unique():
         image_id = random.choice(list(coco_gt.imgs.keys()))
 
+    # Load image
     filename = file_gt.parent / coco_gt.imgs[image_id]["file_name"]
     img = io.read_image(filename, io.ImageReadMode.RGB)
 
-    # Extract boxes and labels
-    df = df[df["image_id"] == image_id]
+    # Extract ground truth boxes
+    ann_ids = coco_gt.getAnnIds(imgIds=image_id)
+    df_gt = pd.DataFrame(coco_gt.loadAnns(ann_ids))
+    df_gt["name"] = df_gt["category_id"].map(coco_gt.cats)
+    df_gt["colors"] = "green"
+    img = _draw_object(img, df_gt)
+
+    # Extract boxes and labels from results
     df = df[df["score"] >= min(0.5, df["score"].max())]
+    df_det = df[df["image_id"] == image_id]
+    df_det["colors"] = df_det["category_id"].map(all_colors)
+    return _draw_object(img, df_det)
+
+
+def _draw_object(img: torch.Tensor, df: pd.DataFrame):
+    """Draw all objects stored in dataframe into image tensor."""
     boxes = torch.Tensor(df["bbox"].tolist())
-    boxes = ops.box_convert(boxes, in_fmt="cxcywh", out_fmt="xyxy")
+    boxes = ops.box_convert(boxes, in_fmt="xywh", out_fmt="xyxy")
 
     # Extract labels with cat name and score
-    labels = [f"#{name}: {score:.2f}" for name, score in zip(df["name"], df["score"])]
-    all_colors = _colors(int(df["category_id"].max()) + 1)
-    colors = [all_colors[cat_id] for cat_id in df["category_id"]]
+    if "score" in df.columns:
+        labels = [
+            f"{name}: {score:.2f}" for name, score in zip(df["name"], df["score"])
+        ]
+    else:
+        labels = [f"{name}" for name in df["name"]]
 
-    img = utils.draw_bounding_boxes(
-        img, boxes, labels, width=2, colors=colors, fill_labels=True
+    return utils.draw_bounding_boxes(
+        img, boxes, labels, width=2, colors=list(df["colors"]), fill_labels=True
     )
-
-    file_out = Path("tmp") / filename.name
-    file_out.parent.mkdir(parents=True, exist_ok=True)
-    logger.info(f"Output file: {file_out}")
-    io.write_jpeg(img, str(file_out))
 
 
 def _colors(n: int):
@@ -229,7 +251,7 @@ def _colors(n: int):
     cls_values = np.array(list(range(n)), dtype=np.uint8)
     cls_values = cv2.normalize(cls_values, None, 0, 255, cv2.NORM_MINMAX)
     colors = cv2.applyColorMap(cls_values, cv2.COLORMAP_RAINBOW).squeeze()
-    return [tuple(map(int, color)) for color in colors]
+    return {idx: tuple(map(int, color)) for idx, color in enumerate(colors)}
 
 
 if __name__ == "__main__":

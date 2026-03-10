@@ -21,7 +21,7 @@ class ModelData:
     """Dataclass for model data, including weights and metadata."""
 
     ai_model: torch.nn.Module
-    architecture: str
+    name: str
     source: str
     transforms: list[v2.Transform]
     cats: dict[int, str]
@@ -39,29 +39,27 @@ def save(file: Path, weights: torch.nn.Module, model_data: ModelData):
     torch.save(output, file)
 
 
-def load_from_torchvision(architecture: str) -> ModelData:
+def load_from_torchvision(name: str) -> ModelData:
     """Load models either from file or from torchvision."""
 
     # Check if architecture is supported:
     det_models = models.list_models(module=models.detection)
-    if architecture not in det_models:
-        raise ValueError(
-            f"Architecture {architecture} is not in:" + "\n".join(det_models)
-        )
+    if name not in det_models:
+        raise ValueError(f"Architecture {name} is not in:" + "\n".join(det_models))
 
-    model = models.get_model(architecture, weights="DEFAULT")
+    model = models.get_model(name, weights="DEFAULT")
     model = model.to(DEVICE)
 
     # Get weights to load transforms
-    logger.info(f"Loading weights for {architecture}")
-    weights_enum = models.get_model_weights(architecture)
+    logger.info(f"Loading weights for {name}")
+    weights_enum = models.get_model_weights(name)
     w_str = f"{weights_enum.__name__}.COCO_V1"
     weights = models.get_weight(w_str)
     cats = weights.meta["categories"]
 
     return ModelData(
         ai_model=model,
-        architecture=architecture,
+        name=name,
         source="torch",
         transforms=[v2.ToTensor(), v2.ToDtype(torch.float)],
         cats=dict(enumerate(cats)),
@@ -83,7 +81,7 @@ def load_from_torchhub(repo: str, model_name: str):
 
     return ModelData(
         ai_model=model,
-        architecture=model_name,
+        name=model_name,
         source="torchhub",
         transforms=[v2.ToPILImage()],
         cats=model.names,
@@ -94,15 +92,10 @@ def load_from_file(file_model: Path) -> ModelData:
     """Load model from pth file."""
     logger.info(f"Loading model from {file_model}")
     model_data = torch.load(file_model, weights_only=False, map_location=DEVICE)
-    model_data.setdefault("source", file_model.stem)
-    model_data = ModelData(**model_data)
-
-    model_data.transforms = [
-        v2.ToTensor(),
-        # v2.Resize((255, 255)),  # Adjust the input size according to your needs
-    ]
-
-    return model_data
+    model_data["source"] = "file"
+    model_data["name"] = file_model.stem
+    model_data["transforms"] = [v2.ToTensor(), v2.ToDtype(torch.float)]
+    return ModelData(**model_data)
 
 
 def filename(dir_output: Path, name: str):

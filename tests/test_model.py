@@ -34,7 +34,7 @@ def test_load_from_torch(architecture):
 
     # Assert
     assert isinstance(ai_model, model.ModelData)
-    assert ai_model.architecture == architecture
+    assert ai_model.name == architecture
 
 
 @pytest.mark.parametrize(
@@ -50,7 +50,7 @@ def test_load_from_torchhub(repo, model_name):
 
     # Assert
     assert isinstance(ai_model, model.ModelData)
-    assert ai_model.architecture == model_name
+    assert ai_model.name == model_name
 
 
 @pytest.mark.parametrize(
@@ -73,7 +73,7 @@ def test_load_from_file(architecture, tmp_path):
 
     # Assert
     assert isinstance(model_data, model.ModelData)
-    assert model_data.architecture == architecture
+    assert model_data.name == architecture
     try:
         model_data.ai_model.eval()
     except AttributeError:

@@ -77,7 +77,7 @@ def main(args: argparse.Namespace):
     result = _train(model_data.ai_model, t_loader, v_loader, params=TrainParameter())
 
     # Export model
-    file = model.filename(args.dir_output, model_data.architecture)
+    file = model.filename(args.dir_output, model_data.name)
     model.save(file, result.final_model, model_data)
 
     # Export logs
