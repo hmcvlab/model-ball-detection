@@ -73,7 +73,7 @@ def load_from_torchhub(repo: str, model_name: str):
     if model_name not in repo_models:
         raise ValueError(f"Model {model_name} is not in:" + "\n".join(repo_models))
 
-    dir_models = Path("tmp/models/torchhub")
+    dir_models = Path(".cache/torchhub")
     dir_models.mkdir(parents=True, exist_ok=True)
     torch.hub.set_dir(dir_models)
     model = torch.hub.load(repo, model_name, pretrained=True, trust_repo=True)
@@ -103,7 +103,7 @@ def filename(dir_output: Path, name: str):
 
     file_new = None
     for idx in range(100):
-        file_new = dir_output / f"{name}-{idx:02d}.pth"
+        file_new = dir_output / f"{name}_{idx:02d}.pth"
         if not file_new.exists():
             break
 

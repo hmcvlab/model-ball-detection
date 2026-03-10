@@ -8,8 +8,6 @@ import random
 from datetime import datetime
 from pathlib import Path
 
-import cv2
-import numpy as np
 import pandas as pd
 import torch
 from loguru import logger
@@ -64,6 +62,13 @@ def main(args: argparse.Namespace):
         results = _adapt_results_to_coco(results, coco_gt)
         stats_coco = run_coco(coco_gt, results)
 
+        # Save samples
+        file_out = Path("tmp") / f"{model_data.name}-{model_data.source}.jpg"
+        file_out.parent.mkdir(parents=True, exist_ok=True)
+        logger.info(f"Output file: {file_out}")
+        img = sample_with_draw_boxes(args.holdout, results)
+        io.write_jpeg(img, str(file_out))
+
         # Save results
         stats = {
             "datetime": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -74,13 +79,6 @@ def main(args: argparse.Namespace):
         df_stats.to_csv(
             file_benchmark, index=False, mode="a", header=not file_benchmark.exists()
         )
-
-        # Save samples
-        file_out = Path("tmp") / f"{model_data.name}-{model_data.source}.jpg"
-        file_out.parent.mkdir(parents=True, exist_ok=True)
-        logger.info(f"Output file: {file_out}")
-        img = sample_with_draw_boxes(args.holdout, results)
-        io.write_jpeg(img, str(file_out))
 
     logger.info("Done!")
 
@@ -94,18 +92,13 @@ def _adapt_results_to_coco(results: list[dict], coco_gt: COCO) -> list[dict]:
         logger.warning("No 'sports ball' found in results -> skipping adaptation.")
         return results
 
+    # Only keep detections of 'sports ball' and map to ball
     cats_gt = {cat["name"]: cat["id"] for cat in coco_gt.cats.values()}
+    df = df[df["name"].isin(["sports ball"])]
+    df["category_id"] = cats_gt["ball"]
+    df["name"] = "ball"
 
-    # Map 'sport ball' -> 'ball'
-    cats_gt["sports ball"] = cats_gt["ball"]
-    df["new_id"] = df["name"].map(cats_gt)
-
-    # Replace ID's
-    df["category_id"] = df["new_id"]
-    df.drop(columns=["new_id"], inplace=True)
-    results = df.to_dict("records")
-
-    return results
+    return df.to_dict("records")
 
 
 def _inference_yolo(
@@ -206,7 +199,7 @@ def sample_with_draw_boxes(
     """Draw results into image tensor."""
     coco_gt = COCO(file_gt)
     df = pd.DataFrame(results)
-    all_colors = _colors(int(df["category_id"].max()) + 1)
+    all_colors = aux.colors(int(df["category_id"].max()) + 1)
     while image_id not in df["image_id"].unique():
         image_id = random.choice(list(coco_gt.imgs.keys()))
 
@@ -222,14 +215,15 @@ def sample_with_draw_boxes(
     img = _draw_object(img, df_gt)
 
     # Extract boxes and labels from results
-    df = df[df["score"] >= min(0.5, df["score"].max())]
-    df_det = df[df["image_id"] == image_id]
+    df = df[df["image_id"] == image_id]
+    df_det = df[df["score"] >= min(0.5, df["score"].max())]
     df_det["colors"] = df_det["category_id"].map(all_colors)
     return _draw_object(img, df_det)
 
 
 def _draw_object(img: torch.Tensor, df: pd.DataFrame):
     """Draw all objects stored in dataframe into image tensor."""
+    colors = df["colors"].tolist()
     boxes = torch.Tensor(df["bbox"].tolist())
     boxes = ops.box_convert(boxes, in_fmt="xywh", out_fmt="xyxy")
 
@@ -242,16 +236,8 @@ def _draw_object(img: torch.Tensor, df: pd.DataFrame):
         labels = [f"{name}" for name in df["name"]]
 
     return utils.draw_bounding_boxes(
-        img, boxes, labels, width=2, colors=list(df["colors"]), fill_labels=True
+        img, boxes, labels, width=2, colors=colors, fill_labels=True
     )
-
-
-def _colors(n: int):
-    """Return colors fitting to class map."""
-    cls_values = np.array(list(range(n)), dtype=np.uint8)
-    cls_values = cv2.normalize(cls_values, None, 0, 255, cv2.NORM_MINMAX)
-    colors = cv2.applyColorMap(cls_values, cv2.COLORMAP_RAINBOW).squeeze()
-    return {idx: tuple(map(int, color)) for idx, color in enumerate(colors)}
 
 
 if __name__ == "__main__":

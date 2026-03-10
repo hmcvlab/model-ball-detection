@@ -73,7 +73,7 @@ def test_load_from_file(architecture, tmp_path):
 
     # Assert
     assert isinstance(model_data, model.ModelData)
-    assert model_data.name == architecture
+    assert model_data.name == f"{architecture}_00"
     try:
         model_data.ai_model.eval()
     except AttributeError:
