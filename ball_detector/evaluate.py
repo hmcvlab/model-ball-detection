@@ -28,13 +28,15 @@ def main(args: argparse.Namespace):
     # Load model
     if args.file_model:
         ai_models = [
-            model.load_from_file(file)
+            model.load_from_file(file, args.device)
             for file in args.file_model.parent.glob(args.file_model.name)
         ]
     elif args.torch_model:
-        ai_models = [model.load_from_torchvision(args.torch_model)]
+        ai_models = [model.load_from_torchvision(args.torch_model, args.device)]
     elif args.yolo_model:
-        ai_models = [model.load_from_torchhub("ultralytics/yolov5", args.yolo_model)]
+        ai_models = [
+            model.load_from_torchhub("ultralytics/yolov5", args.yolo_model, args.device)
+        ]
     else:
         raise ValueError("Either --file-model or --default-model must be set.")
 
@@ -49,9 +51,9 @@ def main(args: argparse.Namespace):
         # Run inference
         try:
             if args.yolo_model:
-                results = _inference_yolo(model_data.ai_model, loader)
+                results = _inference_yolo(model_data, loader)
             else:
-                results = _inference_torch(model_data.ai_model, loader)
+                results = _inference_torch(model_data, loader)
         except ValueError as e:
             logger.error(e)
             continue
@@ -84,6 +86,13 @@ def main(args: argparse.Namespace):
             file_benchmark, index=False, mode="a", header=not file_benchmark.exists()
         )
 
+    # Cleanup csv file by dropping duplicates
+    df_stats = pd.read_csv(file_benchmark)
+    df_stats = df_stats.drop_duplicates(
+        subset=["name", "source", "ap_mean", "ar_max_100"]
+    ).sort_values(["ap_mean", "ar_max_100"], ascending=False)
+    df_stats.to_csv(file_benchmark, index=False)
+
     logger.info("Done!")
 
 
@@ -106,9 +115,10 @@ def _adapt_results_to_coco(results: list[dict], coco_gt: COCO) -> list[dict]:
 
 
 def _inference_yolo(
-    ai_model: torch.nn.Module, loader: torch.utils.data.DataLoader
+    model_data: model.ModelData, loader: torch.utils.data.DataLoader
 ) -> list:
     """Runs COCO evaluation and returns results in coco compatible format."""
+    ai_model = model_data.ai_model
     ai_model.eval()
 
     results = []
@@ -132,19 +142,22 @@ def _inference_yolo(
     return results
 
 
-def _inference_torch(ai_model, loader) -> list:
+def _inference_torch(
+    model_data: model.ModelData, loader: torch.utils.data.DataLoader
+) -> list:
     """Runs COCO evaluation and prints results to stdout.
 
     Args:
         model: A PyTorch instance segmentation model.
         data_loader: A PyTorch data loader for the COCO dataset.
     """
+    ai_model = model_data.ai_model
     ai_model.eval()
 
     results = []
     for images, targets in tqdm(loader, desc="Evaluating model"):
 
-        images, target = aux.to_device(images, targets)
+        images, target = aux.to_device(images, targets, model_data.device)
         with torch.no_grad():
             outputs = ai_model(images)
 
@@ -220,7 +233,7 @@ def sample_with_draw_boxes(
 
     # Extract boxes and labels from results
     df = df[df["image_id"] == image_id]
-    df_det = df[df["score"] >= min(0.5, df["score"].max())]
+    df_det = df[df["score"] >= min(0.5, df["score"].max())].copy()
     df_det["colors"] = df_det["category_id"].map(all_colors)
     return _draw_object(img, df_det)
 
@@ -259,5 +272,6 @@ if __name__ == "__main__":
         choices=models.list_models(models.detection),
     )
     group.add_argument("--yolo-model", choices=torch.hub.list("ultralytics/yolov5"))
+    parser.add_argument("--device", choices=["cpu", "cuda"], default="cuda")
 
     main(parser.parse_args())

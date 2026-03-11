@@ -21,30 +21,45 @@ def main(args):
     """
     file_model = Path(args.model)
     logger.info(f"Loading model from {file_model}")
-    model_data = torch.load(file_model, weights_only=False, map_location=model.DEVICE)
+    model_data = torch.load(file_model, weights_only=False, map_location=args.device)
 
     # Validate model, if valid just say ok and end script
-    try:
-        _ = model.ModelData(**model_data)
-        logger.info("Model is valid.")
+    if _smoke_test(model_data, args.device):
+        logger.info("Model is valid -> nothing to do.")
         return
-    except TypeError:
-        # Print info about model
-        logger.info(pformat(model_data, indent=2, compact=True))
-        logger.warning("Model is not valid -> patching...")
+    logger.info(pformat(model_data, indent=2, compact=True))
+    logger.warning("Model is not valid -> patching...")
 
     # Patch model
     model_data["name"] = model_data["architecture"]
     model_data.pop("architecture")
 
-    # Validate and save if valid
-    tmp_model = model.ModelData(**model_data)
-    tmp_model.ai_model.eval()
-    torch.save(asdict(tmp_model), file_model)
-    logger.info("Patching was successful!")
+    # If no error occurred, patch was successful
+    if _smoke_test(model_data, args.device):
+        tmp_model = model.ModelData(**model_data)
+        torch.save(asdict(tmp_model), file_model)
+        logger.info("Patching was successful!")
+    else:
+        logger.error("Patching failed!")
+
+
+def _smoke_test(model_args: dict, device: str) -> bool:
+    """Smoke test for model."""
+    try:
+        tmp_model = model.ModelData(**model_args)
+        tmp_model.ai_model.eval()
+        tmp_model.ai_model.to(device)
+        with torch.no_grad():
+            tmp_model.ai_model(torch.rand(1, 3, 224, 224).to(device))
+    except ValueError as e:
+        logger.error(e)
+        logger.error(pformat(model_args, indent=2, compact=True))
+        return False
+    return True
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", type=Path)
+    parser.add_argument("--device", choices=["cpu", "cuda"], default="cuda")
     main(parser.parse_args())

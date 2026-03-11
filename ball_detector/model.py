@@ -13,8 +13,6 @@ from loguru import logger
 from torchvision import models
 from torchvision.transforms import v2
 
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
 
 @dataclass
 class ModelData:
@@ -25,10 +23,11 @@ class ModelData:
     source: str
     transforms: list[v2.Transform]
     cats: dict[int, str]
+    device: str = "cuda" if torch.cuda.is_available() else "cpu"
     with_augmentation: bool = False
 
     def __post_init__(self):
-        self.ai_model = self.ai_model.to(DEVICE)
+        self.ai_model = self.ai_model.to(self.device)
 
 
 def save(file: Path, weights: torch.nn.Module, model_data: ModelData):
@@ -42,33 +41,33 @@ def save(file: Path, weights: torch.nn.Module, model_data: ModelData):
     torch.save(output, file)
 
 
-def load_from_torchvision(name: str) -> ModelData:
+def load_from_torchvision(name: str, device: str) -> ModelData:
     """Load models either from file or from torchvision."""
+    logger.info(f"Loading model for {name}...")
 
     # Check if architecture is supported:
     det_models = models.list_models(module=models.detection)
     if name not in det_models:
         raise ValueError(f"Architecture {name} is not in:" + "\n".join(det_models))
 
+    # Get model
     model = models.get_model(name, weights="DEFAULT")
 
-    # Get weights to load transforms
-    logger.info(f"Loading weights for {name}")
+    # Get weights
     weights_enum = models.get_model_weights(name)
-    w_str = f"{weights_enum.__name__}.COCO_V1"
-    weights = models.get_weight(w_str)
-    cats = weights.meta["categories"]
+    weights = models.get_weight(f"{weights_enum.__name__}.COCO_V1")
 
     return ModelData(
         ai_model=model,
         name=name,
         source="torch",
         transforms=[v2.ToImage(), v2.ToDtype(torch.float, scale=True)],
-        cats=dict(enumerate(cats)),
+        cats=dict(enumerate(weights.meta["categories"])),
+        device=device,
     )
 
 
-def load_from_torchhub(repo: str, model_name: str):
+def load_from_torchhub(repo: str, model_name: str, device: str) -> ModelData:
     """Load model from torchhub."""
 
     repo_models = torch.hub.list(repo)
@@ -86,13 +85,14 @@ def load_from_torchhub(repo: str, model_name: str):
         source="torchhub",
         transforms=[v2.ToPILImage()],
         cats=model.names,
+        device=device,
     )
 
 
-def load_from_file(file_model: Path) -> ModelData:
+def load_from_file(file_model: Path, device: str) -> ModelData:
     """Load model from pth file."""
     logger.info(f"Loading model from {file_model}")
-    model_data = torch.load(file_model, weights_only=False, map_location=DEVICE)
+    model_data = torch.load(file_model, weights_only=False, map_location=device)
     model_data["source"] = "file"
     model_data["name"] = file_model.stem
     model_data["transforms"] = [v2.ToImage(), v2.ToDtype(torch.float, scale=True)]

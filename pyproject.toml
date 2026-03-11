@@ -5,12 +5,7 @@ keywords = ["evaluate", "neural", "networks"]
 description = "Library to train and evaluate neural networks."
 requires-python = ">=3.10"
 dependencies = [
-  "loguru",
-  "torchvision",
-  "ultralytics",
-  "seaborn",
-  "smmap",
-  "gitpython",
+  "yolov5",
 ]
 
 [[project.authors]]

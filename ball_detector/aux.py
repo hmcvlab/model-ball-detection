@@ -12,8 +12,6 @@ import torch
 from torchvision import datasets
 from torchvision.transforms import v2
 
-from ball_detector import model
-
 SEED = 42
 DATA_ROOT = Path("/mnt/data")
 
@@ -48,11 +46,11 @@ def _collate_fn(batch):
     return tuple(zip(*batch))
 
 
-def to_device(images, targets):
+def to_device(images: list[torch.Tensor], targets: list[dict], device: str):
     """Move images and targets to device."""
     keys = ["boxes", "labels"]
-    images = [img.to(model.DEVICE) for img in images]
-    targets = [{k: t[k].to(model.DEVICE) for k in keys} for t in targets]
+    images = [img.to(device) for img in images]
+    targets = [{k: t[k].to(device) for k in keys} for t in targets]
     return images, targets
 
 
