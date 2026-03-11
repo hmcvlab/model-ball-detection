@@ -27,6 +27,9 @@ class ModelData:
     cats: dict[int, str]
     with_augmentation: bool = False
 
+    def __post_init__(self):
+        self.ai_model = self.ai_model.to(DEVICE)
+
 
 def save(file: Path, weights: torch.nn.Module, model_data: ModelData):
     """Structure data for export."""
@@ -48,7 +51,6 @@ def load_from_torchvision(name: str) -> ModelData:
         raise ValueError(f"Architecture {name} is not in:" + "\n".join(det_models))
 
     model = models.get_model(name, weights="DEFAULT")
-    model = model.to(DEVICE)
 
     # Get weights to load transforms
     logger.info(f"Loading weights for {name}")
@@ -77,7 +79,6 @@ def load_from_torchhub(repo: str, model_name: str):
     dir_models.mkdir(parents=True, exist_ok=True)
     torch.hub.set_dir(dir_models)
     model = torch.hub.load(repo, model_name, pretrained=True, trust_repo=True)
-    model = model.to(DEVICE)
 
     return ModelData(
         ai_model=model,

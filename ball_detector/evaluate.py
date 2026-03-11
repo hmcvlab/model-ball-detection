@@ -47,10 +47,14 @@ def main(args: argparse.Namespace):
         loader = aux.load_dataset(args.holdout, transforms=transforms, shuffle=False)
 
         # Run inference
-        if args.yolo_model:
-            results = _inference_yolo(model_data.ai_model, loader)
-        else:
-            results = _inference_torch(model_data.ai_model, loader)
+        try:
+            if args.yolo_model:
+                results = _inference_yolo(model_data.ai_model, loader)
+            else:
+                results = _inference_torch(model_data.ai_model, loader)
+        except ValueError as e:
+            logger.error(e)
+            continue
 
         # Add name to results
         df = pd.DataFrame(results)

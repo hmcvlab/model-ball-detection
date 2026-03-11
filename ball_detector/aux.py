@@ -66,7 +66,7 @@ def load_dataset(file: Path, transforms: list[v2.Transform] | v2.Compose, shuffl
 
     return torch.utils.data.DataLoader(
         dataset_coco,
-        batch_size=6,
+        batch_size=4,
         shuffle=shuffle,
         num_workers=8,
         collate_fn=_collate_fn,
