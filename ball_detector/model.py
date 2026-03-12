@@ -74,7 +74,7 @@ def load_from_torchhub(repo: str, model_name: str, device: str) -> ModelData:
     if model_name not in repo_models:
         raise ValueError(f"Model {model_name} is not in:" + "\n".join(repo_models))
 
-    dir_models = Path(".cache/torchhub")
+    dir_models = Path("/tmp/torchhub")
     dir_models.mkdir(parents=True, exist_ok=True)
     torch.hub.set_dir(dir_models)
     model = torch.hub.load(repo, model_name, pretrained=True, trust_repo=True)
