@@ -20,7 +20,7 @@ from ultralytics import YOLO
 def main(args: argparse.Namespace):
     """Entrypoint"""
 
-    file_coco = args.dir_dataset / "yolo/coco.yaml"
+    file_coco = args.dir_dataset.parent / f"{args.dir_dataset.name}-yolo/coco.yaml"
     if not file_coco.exists():
         coco2yolo(args.dir_dataset, file_coco)
 
@@ -97,7 +97,7 @@ def coco2yolo(dir_input: Path, file_out: Path):
     # Export config
     data = {"path": str(dir_root)}
     for split in names_split:
-        data[split] = dir_labels.joinpath(split).relative_to(dir_root)
+        data[split] = str(dir_labels.joinpath(split).relative_to(dir_root))
     data["names"] = {cat["id"]: cat["name"] for cat in coco_data["categories"]}
     with open(file_out, "w", encoding="utf-8") as f:
         yaml.dump(data, f, sort_keys=False)
@@ -105,6 +105,15 @@ def coco2yolo(dir_input: Path, file_out: Path):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", choices=["yolov5s.pt", "yolov5m", "yolov5l"])
-    parser.add_argument("--dir-dataset", type=Path, help="Input path")
+    parser.add_argument(
+        "--model",
+        choices=["yolov5s.pt", "yolov5m.pt", "yolov5l.pt"],
+        default="yolov5s.pt",
+    )
+    parser.add_argument(
+        "--dir-dataset",
+        type=Path,
+        help="Input path",
+        default="/mnt/data/datasets/accurate-balls",
+    )
     main(parser.parse_args())
