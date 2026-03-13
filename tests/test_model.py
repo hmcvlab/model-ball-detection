@@ -68,7 +68,7 @@ def test_load_from_file(architecture, tmp_path):
     filename = model.filename(tmp_path, architecture)
 
     # Act
-    model.save(filename, model_data.ai_model, model_data)
+    model_data.export(filename)
     model_data = model.load_from_file(filename, device="cpu")
 
     # Assert
