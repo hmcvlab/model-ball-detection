@@ -115,14 +115,14 @@ def load_from_file(file_model: Path, device: str) -> Data:
     return Data(**model_data)
 
 
-def filename(dir_output: Path, name: str, suffix: str = ".pth") -> Path:
+def filename(dir_output: Path, name: str) -> Path:
     """Add a suffix wit an index if the output folder already exists."""
-
-    file_new = dir_output / f"{name}_00{suffix}"
+    name, suffix = name.rsplit(".", 1)
+    file_new = dir_output / f"{name}_00.{suffix}"
     for idx in range(1, 99, 1):
         if not file_new.exists():
             logger.info(f"Output file: {file_new}")
             return file_new
-        file_new = dir_output / f"{name}_{idx:02d}{suffix}"
+        file_new = dir_output / f"{name}_{idx:02d}.{suffix}"
 
     raise ValueError("Unable to find a non-existing output file!")

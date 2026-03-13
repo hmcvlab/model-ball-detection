@@ -5,6 +5,7 @@ Copyright (c) 2026 Munich University of Applied Sciences
 
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import torch
 from loguru import logger
@@ -13,7 +14,7 @@ from pycocotools.cocoeval import COCOeval
 from torchvision import ops
 from tqdm import tqdm
 
-from ball_detector import draw, model
+from ball_detector import aux, hough, model
 
 ROOT = Path(__file__).parent
 
@@ -64,7 +65,7 @@ def inference_torch(
     results = []
     for images, targets in tqdm(loader, desc="Evaluating model"):
 
-        images, target = draw.to_device(images, targets, model_data.device)
+        images, target = aux.to_device(images, targets, model_data.device)
         with torch.no_grad():
             outputs = ai_model(images)
 
@@ -87,6 +88,20 @@ def inference_torch(
     df = pd.DataFrame(results)
     df["name"] = df["category_id"].map(model_data.cats)
     results = df.to_dict("records")
+    return results
+
+
+def inference_hough(loader: torch.utils.data.DataLoader) -> list:
+    """Run hough circle detection on dataset."""
+    results = []
+    for images, targets in tqdm(loader, desc="Evaluating hough"):
+
+        for img, target in zip(images, targets):
+            img = np.array(img)
+            res = hough.circles(img)
+            res["image_id"] = int(target["image_id"])
+            results += res.head(len(target["boxes"])).to_dict("records")
+
     return results
 
 

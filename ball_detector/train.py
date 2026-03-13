@@ -9,11 +9,13 @@ from pathlib import Path
 
 import torch
 from loguru import logger
+from torchvision.transforms import v2
 from tqdm import tqdm
 
-from ball_detector import draw, model
+from ball_detector import aux, model
 
 ROOT = Path(__file__).parent
+SEED = 42
 
 
 @dataclass
@@ -26,6 +28,31 @@ class Parameter:
     weight_decay: float = 0.01
     warmup_epochs: int = 0
     momentum: float = 0.9
+
+
+# pylint: disable=too-many-instance-attributes
+@dataclass
+class Augmentation:
+    """Dataclass for image augmentation parameters.
+
+    Normalization values for MASK-R-CNN:
+        mean=[0.485, 0.456, 0.406]
+        std=[0.229, 0.224, 0.225]
+    """
+
+    seed: int = SEED
+    noise_sigma: float | None = 0.05
+    jitter_hue: float | None = 0.05
+    jitter_brightness: float | None = 0.05
+    p_jitter: float | None = 0.2
+    normalize_mean: list[float] | None = None
+    normalize_std: list[float] | None = None
+
+    # Geometric augmentations
+    p_zoom: float | None = None
+    p_hflip: float | None = None
+    p_vflip: float | None = None
+    p_distort: float | None = None
 
 
 def run(
@@ -66,7 +93,7 @@ def run(
 
         ai_model.train()
         for step, (images, targets) in enumerate(progress_bar):
-            images, targets = draw.to_device(images, targets, model_data.device)
+            images, targets = aux.to_device(images, targets, model_data.device)
 
             loss_dict = ai_model(images, targets)
             losses = sum(loss for loss in loss_dict.values())
@@ -122,8 +149,39 @@ def _validate(ai_model, loader: torch.utils.data.DataLoader):
     val_loss = 0.0
     with torch.no_grad():
         for images, targets in loader:
-            images, targets = draw.to_device(images, targets, ai_model.device)
+            images, targets = aux.to_device(images, targets, ai_model.device)
             loss_dict = ai_model(images, targets)
             losses = sum(loss_dict.values())
             val_loss += losses.item()
     return val_loss / len(loader)
+
+
+def augmentation_transforms(params: Augmentation) -> list[v2.Transform]:
+    """Generate torch transformation object for validate and train."""
+    transform = []
+
+    # Geometric augmentations
+    if params.p_hflip is not None:
+        transform += [v2.RandomHorizontalFlip(params.p_hflip)]
+
+    if params.p_vflip is not None:
+        transform += [v2.RandomVerticalFlip(params.p_vflip)]
+
+    if params.p_zoom is not None:
+        transform += [v2.RandomZoomOut(fill=0, p=params.p_zoom, side_range=[1, 2])]
+
+    if params.p_distort is not None:
+        transform += [v2.RandomPhotometricDistort(p=params.p_distort)]
+    transform += [v2.SanitizeBoundingBoxes()]
+
+    # Pixel augmentations must be after convert to float
+    if params.jitter_brightness is not None and params.jitter_hue is not None:
+        jitter = v2.ColorJitter(
+            brightness=params.jitter_brightness, hue=params.jitter_hue
+        )
+        transform += [v2.RandomApply([jitter], p=params.p_jitter)]
+
+    if params.noise_sigma is not None:
+        transform += [v2.GaussianNoise(sigma=params.noise_sigma)]
+
+    return transform

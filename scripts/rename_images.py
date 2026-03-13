@@ -15,15 +15,15 @@ from pathlib import Path
 from uuid import uuid4
 
 import pandas as pd
-from loguru import logger as log
+from loguru import logger
 from tqdm import tqdm
 
 
 def main(args: argparse.Namespace) -> None:
     """Search recursively for zip files and generate UUIDs for all images."""
-    log.remove()
-    log.add(sys.stdout, level="DEBUG" if args.debug else "INFO")
-    log.info("Start renaming images...")
+    logger.remove()
+    logger.add(sys.stdout, level="DEBUG" if args.debug else "INFO")
+    logger.info("Start renaming images...")
 
     dir_old = args.source
     dir_new = args.source.parent / f"{dir_old.name}-patched"
@@ -41,7 +41,7 @@ def main(args: argparse.Namespace) -> None:
         with file_data.open(mode="r", encoding="utf-8") as file:
             data = json.load(file)
         df_images = pd.DataFrame(data["images"])
-        log.debug(df_images)
+        logger.debug(df_images)
 
         # Update infos
         data["info"]["version"] = "v3"
@@ -64,16 +64,16 @@ def main(args: argparse.Namespace) -> None:
             entry["file_name"] = str(new_name.relative_to(dir_new))
             new_name.parent.mkdir(exist_ok=True)
             shutil.copy2(old_name, new_name)
-            log.debug(f"Rename: {old_name} -> {new_name}")
+            logger.debug(f"Rename: {old_name} -> {new_name}")
 
         # Save new data file to new directory
         new_file_data = dir_new / file_data.name
         with new_file_data.open(mode="w", encoding="utf-8") as file:
             json.dump(data, file)
 
-        log.info(f"Save new annotation file to {new_file_data}")
+        logger.info(f"Save new annotation file to {new_file_data}")
 
-    log.info("Done!")
+    logger.info("Done!")
 
 
 if __name__ == "__main__":

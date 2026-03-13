@@ -16,7 +16,7 @@ import torch
 import yaml
 from torchvision import io, ops, utils
 from tqdm import tqdm
-from ultralytics import YOLO
+from ultralytics import RTDETR, YOLO
 
 from ball_detector import aux, model
 
@@ -25,7 +25,7 @@ def main(args: argparse.Namespace):
     """Entrypoint"""
     file_coco = args.dir_dataset.parent / f"{args.dir_dataset.name}-yolo/coco.yaml"
     file_model_base = aux.DATA_ROOT / f"models/yolo/{args.model}"
-    file_model_tuned = model.filename(file_model_base.parent, args.model, suffix=".pt")
+    file_model_tuned = model.filename(file_model_base.parent, args.model)
 
     if not file_coco.exists():
         data = coco2yolo(args.dir_dataset, file_coco)
@@ -36,9 +36,14 @@ def main(args: argparse.Namespace):
         with open(file_coco, "r", encoding="utf-8") as f:
             data = yaml.safe_load(f)
 
-    yolo_model = YOLO(file_model_base, task="detect")
-    yolo_model.train(data=file_coco, epochs=10, batch=4)
-    yolo_model.save(file_model_tuned)
+    if "yolo" in args.model:
+        ul_model = YOLO(file_model_base, task="detect")
+    elif "detr" in args.model:
+        ul_model = RTDETR(file_model_base)
+    else:
+        raise ValueError(f"Unknown model {args.model}")
+    ul_model.train(data=file_coco, epochs=10, batch=4)
+    ul_model.save(file_model_tuned)
 
 
 def coco2yolo(dir_input: Path, file_out: Path):
@@ -142,7 +147,22 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--model",
-        choices=["yolov5s.pt", "yolov5m.pt", "yolov5l.pt"],
+        choices=[
+            "yolov5s.pt",
+            "yolov5m.pt",
+            "yolov5l.pt",
+            "yolov5x.pt",
+            "yolo11s.pt",
+            "yolo11m.pt",
+            "yolo11l.pt",
+            "yolo11x.pt",
+            "yolo26s.pt",
+            "yolo26m.pt",
+            "yolo26l.pt",
+            "yolo26x.pt",
+            "rtdetr-l.pt",
+            "rtdetr-x.pt",
+        ],
         default="yolov5s.pt",
     )
     parser.add_argument(
