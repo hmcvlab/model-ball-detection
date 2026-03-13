@@ -29,16 +29,16 @@ def inference_yolo(model_data: model.Data, loader: torch.utils.data.DataLoader) 
         with torch.no_grad():
             outputs = ai_model(images)
 
-        for out, target in zip(outputs.xyxy, targets):
-            boxes = ops.box_convert(out[:, :4], in_fmt="xyxy", out_fmt="xywh")
-            for row, box in zip(out, boxes):
+        for out, target in zip(outputs, targets):
+            data = out.boxes
+            boxes = ops.box_convert(data.xyxy, in_fmt="xyxy", out_fmt="xywh")
+            for box, score, cat in zip(boxes, data.conf, data.cls):
                 results.append(
                     {
                         "image_id": int(target["image_id"]),
                         "bbox": box.tolist(),
-                        "score": float(row[4]),
-                        "category_id": int(row[5]),
-                        "name": int(row[6]),
+                        "score": float(score),
+                        "category_id": int(cat),
                     }
                 )
 

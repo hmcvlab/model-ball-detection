@@ -28,20 +28,12 @@ class Parameter:
     momentum: float = 0.9
 
 
-@dataclass
-class Results:
-    """Dataclass to store training results, including metrics and logs."""
-
-    final_model: torch.nn.Module
-    logs: list
-
-
 def run(
     model_data: model.Data,
     train_loader,
     val_loader,
     params: Parameter,
-) -> Results:
+) -> model.Data:
     """Train a torch model using the given data loaders."""
     logger.info(f"Start training of {model_data.name} model...")
     ai_model = model_data.ai_model
@@ -66,7 +58,7 @@ def run(
     else:
         scheduler = None
 
-    result_args = {"final_model": None, "logs": []}
+    logs = []
     best_loss = float("inf")
     for epoch in tqdm(range(params.epochs), desc="Epoch", unit="epoch"):
         running_loss = 0.0
@@ -97,7 +89,7 @@ def run(
         n_batches = len(train_loader)
         avg_val_loss = _validate(ai_model, val_loader)
 
-        result_args["logs"].append(
+        logs.append(
             {
                 "step": (epoch + 1) * n_batches,
                 "epoch": epoch,
@@ -108,9 +100,10 @@ def run(
 
         if avg_val_loss < best_loss:
             best_loss = avg_val_loss
-            result_args["final_model"] = deepcopy(ai_model)
+            model_data.ai_model = deepcopy(ai_model)
 
-    return Results(**result_args)
+    model_data.logs = logs
+    return model_data
 
 
 def _validate(ai_model, loader: torch.utils.data.DataLoader):

@@ -10,8 +10,7 @@ from pathlib import Path
 import pandas as pd
 import torch
 from loguru import logger
-from pycocotools.coco import COCO
-from torchvision import io, models
+from torchvision import io
 
 from ball_detector import aux, coco, draw, model
 
@@ -23,19 +22,10 @@ def main(args: argparse.Namespace):
     logger.info("Start evaluation...")
 
     # Load model
-    if args.file_model:
-        ai_models = [
-            model.load_from_file(file, args.device)
-            for file in args.file_model.parent.glob(args.file_model.name)
-        ]
-    elif args.torch_model:
-        ai_models = [model.load_from_torchvision(args.torch_model, args.device)]
-    elif args.yolo_model:
-        ai_models = [
-            model.load_from_torchhub("ultralytics/yolov5", args.yolo_model, args.device)
-        ]
-    else:
-        raise ValueError("Either --file-model or --default-model must be set.")
+    ai_models = [
+        model.load_from_file(file, args.device)
+        for file in args.file_model.parent.glob(args.file_model.name)
+    ]
 
     file_benchmark = (
         aux.DATA_ROOT / f"analysis/{args.holdout.parent.stem}_benchmark.csv"
@@ -47,14 +37,10 @@ def main(args: argparse.Namespace):
 
         # Run inference
         try:
-            if args.yolo_model:
-                results = coco.inference_yolo(model_data, loader)
-            else:
-                results = coco.inference_torch(model_data, loader)
+            results = coco.inference_yolo(model_data, loader)
         except ValueError as e:
             logger.error(e)
             continue
-
 
         # Run COCO evaluation
         stats_coco = coco.run_eval(args.holdout, results)
@@ -94,14 +80,10 @@ if __name__ == "__main__":
         type=Path,
         default=aux.DATA_ROOT / "datasets/accurate-balls/holdout.coco.json",
     )
+    parser.add_argument("--device", choices=["cpu", "cuda"], default="cuda")
 
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--file-model", type=Path)
-    group.add_argument(
-        "--torch-model",
-        choices=models.list_models(models.detection),
-    )
     group.add_argument("--yolo-model", choices=torch.hub.list("ultralytics/yolov5"))
-    parser.add_argument("--device", choices=["cpu", "cuda"], default="cuda")
 
     main(parser.parse_args())

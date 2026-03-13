@@ -6,8 +6,6 @@ Copyright (c) 2026 Munich University of Applied Sciences
 from dataclasses import dataclass
 from pathlib import Path
 
-import cv2
-import numpy as np
 import torch
 from torchvision import datasets
 from torchvision.transforms import v2
@@ -100,4 +98,3 @@ def augmentation_transforms(params: Augmentation) -> list[v2.Transform]:
         transform += [v2.GaussianNoise(sigma=params.noise_sigma)]
 
     return transform
-

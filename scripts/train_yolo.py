@@ -18,16 +18,27 @@ from torchvision import io, ops, utils
 from tqdm import tqdm
 from ultralytics import YOLO
 
+from ball_detector import aux, model
+
 
 def main(args: argparse.Namespace):
     """Entrypoint"""
-
     file_coco = args.dir_dataset.parent / f"{args.dir_dataset.name}-yolo/coco.yaml"
-    if not file_coco.exists():
-        coco2yolo(args.dir_dataset, file_coco)
+    file_model_base = aux.DATA_ROOT / f"models/yolo/{args.model}"
+    file_model_tuned = model.filename(file_model_base.parent, args.model, suffix=".pt")
 
-    model = YOLO(f"tmp/models/{args.model}", task="detect")
-    model.train(data=file_coco, epochs=10, batch=4)
+    if not file_coco.exists():
+        data = coco2yolo(args.dir_dataset, file_coco)
+
+        with open(file_coco, "w", encoding="utf-8") as f:
+            yaml.dump(data, f, sort_keys=False)
+    else:
+        with open(file_coco, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+
+    yolo_model = YOLO(file_model_base, task="detect")
+    yolo_model.train(data=file_coco, epochs=10, batch=4)
+    yolo_model.save(file_model_tuned)
 
 
 def coco2yolo(dir_input: Path, file_out: Path):
@@ -77,8 +88,9 @@ def coco2yolo(dir_input: Path, file_out: Path):
 
             # boxes: category_id, x, y, w, h
             cats = df4img["category_id"].to_list()
-            boxes = _boxes2cxcywh_normalized(df4img["bbox"].to_list(), img_row)
-            annos = np.column_stack((cats, boxes)).tolist()
+            boxes = df4img["bbox"].to_list()
+            boxes_norm = _boxes2cxcywh_normalized(boxes, img_row)
+            annos = np.column_stack((cats, boxes_norm)).tolist()
 
             # Copy image
             file_img = dir_input / img_row["file_name"]
@@ -95,21 +107,23 @@ def coco2yolo(dir_input: Path, file_out: Path):
             )
 
             # Draw sample
-            # if img_id == 1:
-            #     img = io.read_image(file_img)
-            #     boxes = ops.box_convert(boxes, in_fmt="cxcywh", out_fmt="xyxy")
-            #     img = utils.draw_bounding_boxes(img, boxes)
-            #     file_sample = Path(f"tmp/samples/yolo/{file_img.stem}.png")
-            #     file_sample.parent.mkdir(exist_ok=True, parents=True)
-            #     io.write_png(img, file_sample)
+            if img_id == 1:
+                img = io.read_image(file_img)
+                boxes_t = torch.Tensor(boxes)
+                labels = [coco_data["categories"][cat]["name"] for cat in cats]
+                boxes_t = ops.box_convert(boxes_t, in_fmt="cxcywh", out_fmt="xyxy")
+                img = utils.draw_bounding_boxes(img, boxes_t, labels=labels)
+                file_sample = Path(f"tmp/samples/yolo/{file_img.stem}.png")
+                file_sample.parent.mkdir(exist_ok=True, parents=True)
+                io.write_png(img, file_sample)
 
     # Export config
     data = {"path": str(dir_root)}
     for split in names_split:
         data[split] = str(dir_images.joinpath(split).relative_to(dir_root))
     data["names"] = {cat["id"]: cat["name"] for cat in coco_data["categories"]}
-    with open(file_out, "w", encoding="utf-8") as f:
-        yaml.dump(data, f, sort_keys=False)
+
+    return data
 
 
 def _boxes2cxcywh_normalized(boxes: list[list[float]], img: pd.Series) -> np.ndarray:
@@ -136,5 +150,8 @@ if __name__ == "__main__":
         type=Path,
         help="Input path",
         default="/mnt/data/datasets/accurate-balls",
+    )
+    parser.add_argument(
+        "--dir-output", type=Path, default=aux.DATA_ROOT / "models/torch"
     )
     main(parser.parse_args())

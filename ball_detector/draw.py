@@ -24,7 +24,7 @@ def colors(n: int):
     return {idx: tuple(map(int, color)) for idx, color in enumerate(all_colors)}
 
 
-def draw_sample_with_boxes(
+def sample_with_boxes(
     file_gt: Path, results: list[dict], image_id: int = -1
 ) -> torch.Tensor:
     """Draw results into image tensor."""
@@ -43,16 +43,16 @@ def draw_sample_with_boxes(
     df_gt = pd.DataFrame(coco_gt.loadAnns(ann_ids))
     df_gt["name"] = df_gt["category_id"].map(coco_gt.cats)
     df_gt["colors"] = "green"
-    img = draw_object(img, df_gt)
+    img = _draw_object(img, df_gt)
 
     # Extract boxes and labels from results
     df = df[df["image_id"] == image_id]
     df_det = df[df["score"] >= min(0.5, df["score"].max())].copy()
     df_det["colors"] = df_det["category_id"].map(all_colors)
-    return draw_object(img, df_det)
+    return _draw_object(img, df_det)
 
 
-def draw_object(img: torch.Tensor, df: pd.DataFrame):
+def _draw_object(img: torch.Tensor, df: pd.DataFrame):
     """Draw all objects stored in dataframe into image tensor."""
     box_colors = df["colors"].tolist()
     boxes = torch.Tensor(df["bbox"].tolist())

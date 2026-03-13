@@ -9,7 +9,6 @@ import argparse
 import json
 from pathlib import Path
 
-import pandas as pd
 from loguru import logger
 from torchvision import models
 
@@ -48,15 +47,10 @@ def main(args: argparse.Namespace):
     t_loader = aux.load_dataset(t_file, t_transforms, shuffle=True)
     v_loader = aux.load_dataset(v_file, model_data.transforms, shuffle=False)
 
-    result = train.run(model_data, t_loader, v_loader, params=train.Parameter())
+    new_model_data = train.run(model_data, t_loader, v_loader, params=train.Parameter())
 
-    # Export model
-    file = model.filename(args.dir_output, model_data.name)
-    model.save(file, result.final_model, model_data)
-
-    # Export logs
-    df = pd.DataFrame(result.logs)
-    df.to_csv(file.with_suffix(".csv"), index=False)
+    # Export model + logs
+    new_model_data.export(args.dir_output / model_data.name)
 
 
 if __name__ == "__main__":
