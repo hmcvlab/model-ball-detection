@@ -11,7 +11,7 @@ import torch
 from loguru import logger
 from tqdm import tqdm
 
-from ball_detector import aux, model
+from ball_detector import draw, model
 
 ROOT = Path(__file__).parent
 
@@ -66,7 +66,7 @@ def run(
 
         ai_model.train()
         for step, (images, targets) in enumerate(progress_bar):
-            images, targets = aux.to_device(images, targets, model_data.device)
+            images, targets = draw.to_device(images, targets, model_data.device)
 
             loss_dict = ai_model(images, targets)
             losses = sum(loss for loss in loss_dict.values())
@@ -122,7 +122,7 @@ def _validate(ai_model, loader: torch.utils.data.DataLoader):
     val_loss = 0.0
     with torch.no_grad():
         for images, targets in loader:
-            images, targets = aux.to_device(images, targets, ai_model.device)
+            images, targets = draw.to_device(images, targets, ai_model.device)
             loss_dict = ai_model(images, targets)
             losses = sum(loss_dict.values())
             val_loss += losses.item()

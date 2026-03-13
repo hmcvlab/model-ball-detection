@@ -12,7 +12,7 @@ from pathlib import Path
 from loguru import logger
 from torchvision import models
 
-from ball_detector import aux, model, train
+from ball_detector import draw, model, train
 
 
 def main(args: argparse.Namespace):
@@ -22,7 +22,7 @@ def main(args: argparse.Namespace):
     v_file = args.dataset / "valid.coco.json"
 
     # Load transformations
-    aug_params = aux.Augmentation()
+    aug_params = draw.Augmentation()
 
     # Load model
     if args.file_model:
@@ -41,11 +41,11 @@ def main(args: argparse.Namespace):
     t_transforms = model_data.transforms
     if args.augment:
         model_data.with_augmentation = True
-        t_transforms += aux.augmentation_transforms(aug_params)
+        t_transforms += draw.augmentation_transforms(aug_params)
 
     # Load dataset
-    t_loader = aux.load_dataset(t_file, t_transforms, shuffle=True)
-    v_loader = aux.load_dataset(v_file, model_data.transforms, shuffle=False)
+    t_loader = draw.load_dataset(t_file, t_transforms, shuffle=True)
+    v_loader = draw.load_dataset(v_file, model_data.transforms, shuffle=False)
 
     new_model_data = train.run(model_data, t_loader, v_loader, params=train.Parameter())
 
@@ -56,10 +56,10 @@ def main(args: argparse.Namespace):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--dataset", type=Path, default=aux.DATA_ROOT / "datasets/accurate-balls"
+        "--dataset", type=Path, default=draw.DATA_ROOT / "datasets/accurate-balls"
     )
     parser.add_argument(
-        "--dir-output", type=Path, default=aux.DATA_ROOT / "models/torch"
+        "--dir-output", type=Path, default=draw.DATA_ROOT / "models/torch"
     )
     parser.add_argument("--augment", action="store_true", default=False)
     parser.add_argument("--device", choices=["cpu", "cuda"], default="cuda")

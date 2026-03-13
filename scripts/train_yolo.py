@@ -18,13 +18,13 @@ from torchvision import io, ops, utils
 from tqdm import tqdm
 from ultralytics import YOLO
 
-from ball_detector import aux, model
+from ball_detector import draw, model
 
 
 def main(args: argparse.Namespace):
     """Entrypoint"""
     file_coco = args.dir_dataset.parent / f"{args.dir_dataset.name}-yolo/coco.yaml"
-    file_model_base = aux.DATA_ROOT / f"models/yolo/{args.model}"
+    file_model_base = draw.DATA_ROOT / f"models/yolo/{args.model}"
     file_model_tuned = model.filename(file_model_base.parent, args.model, suffix=".pt")
 
     if not file_coco.exists():
@@ -152,6 +152,6 @@ if __name__ == "__main__":
         default="/mnt/data/datasets/accurate-balls",
     )
     parser.add_argument(
-        "--dir-output", type=Path, default=aux.DATA_ROOT / "models/torch"
+        "--dir-output", type=Path, default=draw.DATA_ROOT / "models/torch"
     )
     main(parser.parse_args())

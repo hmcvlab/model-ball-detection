@@ -13,7 +13,7 @@ from pycocotools.cocoeval import COCOeval
 from torchvision import ops
 from tqdm import tqdm
 
-from ball_detector import aux, model
+from ball_detector import draw, model
 
 ROOT = Path(__file__).parent
 
@@ -64,7 +64,7 @@ def inference_torch(
     results = []
     for images, targets in tqdm(loader, desc="Evaluating model"):
 
-        images, target = aux.to_device(images, targets, model_data.device)
+        images, target = draw.to_device(images, targets, model_data.device)
         with torch.no_grad():
             outputs = ai_model(images)
 

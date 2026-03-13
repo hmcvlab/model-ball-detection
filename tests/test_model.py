@@ -30,7 +30,7 @@ from ball_detector import model
 def test_load_from_torch(architecture):
     """Test loading model from torchvision."""
     # Act
-    ai_model = model.load_from_torchvision(architecture)
+    ai_model = model.load_from_torchvision(architecture, device="cpu")
 
     # Assert
     assert isinstance(ai_model, model.Data)
@@ -46,7 +46,7 @@ def test_load_from_torch(architecture):
 def test_load_from_torchhub(repo, model_name):
     """Test loading model from torchhub."""
     # Act
-    ai_model = model.load_from_torchhub(repo, model_name)
+    ai_model = model.load_from_torchhub(repo, model_name, device="cpu")
 
     # Assert
     assert isinstance(ai_model, model.Data)
@@ -64,12 +64,12 @@ def test_load_from_torchhub(repo, model_name):
 def test_load_from_file(architecture, tmp_path):
     """Load a model from torch, save and try to load from file."""
     # Arrange
-    model_data = model.load_from_torchvision(architecture)
+    model_data = model.load_from_torchvision(architecture, device="cpu")
     filename = model.filename(tmp_path, architecture)
 
     # Act
     model.save(filename, model_data.ai_model, model_data)
-    model_data = model.load_from_file(filename)
+    model_data = model.load_from_file(filename, device="cpu")
 
     # Assert
     assert isinstance(model_data, model.Data)

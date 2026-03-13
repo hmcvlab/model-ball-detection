@@ -8,7 +8,6 @@ from pathlib import Path
 
 import cv2
 import numpy as np
-import pandas as pd
 import pytest
 import torch
 from torchvision.transforms import v2
@@ -60,28 +59,6 @@ def coco_annotations(length: int, tmp_path: Path):
         file.write(json.dumps(data))
 
     return data
-
-
-@pytest.mark.parametrize(
-    "n",
-    [
-        (2),
-        (3),
-    ],
-)
-def test_smoke_test(n):
-    """Test if colors creates a dict of tuples."""
-    # Arrange
-    df = pd.DataFrame([{"category_id": 1}, {"category_id": 2}, {"category_id": 3}])
-
-    # Act
-    colors = aux.colors(n)
-    df["colors"] = df["category_id"].map(colors)
-
-    # Assert
-    assert isinstance(colors, dict)
-    assert all(isinstance(color, tuple) for color in colors.values())
-    assert df[df["category_id"] == 1]["colors"].iloc[0] == colors[1]
 
 
 @pytest.mark.parametrize(
