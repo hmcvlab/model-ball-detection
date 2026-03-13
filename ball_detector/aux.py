@@ -101,10 +101,3 @@ def augmentation_transforms(params: Augmentation) -> list[v2.Transform]:
 
     return transform
 
-
-def colors(n: int):
-    """Return colors fitting to class map."""
-    cls_values = np.array(list(range(n)), dtype=np.uint8)
-    cls_values = cv2.normalize(cls_values, None, 0, 255, cv2.NORM_MINMAX)
-    all_colors = cv2.applyColorMap(cls_values, cv2.COLORMAP_RAINBOW).squeeze()
-    return {idx: tuple(map(int, color)) for idx, color in enumerate(all_colors)}

@@ -36,7 +36,7 @@ def main(args):
 
     # If no error occurred, patch was successful
     if _smoke_test(model_data, args.device):
-        tmp_model = model.ModelData(**model_data)
+        tmp_model = model.Data(**model_data)
         torch.save(asdict(tmp_model), file_model)
         logger.info("Patching was successful!")
     else:
@@ -46,7 +46,7 @@ def main(args):
 def _smoke_test(model_args: dict, device: str) -> bool:
     """Smoke test for model."""
     try:
-        tmp_model = model.ModelData(**model_args)
+        tmp_model = model.Data(**model_args)
         tmp_model.ai_model.eval()
         tmp_model.ai_model.to(device)
         with torch.no_grad():

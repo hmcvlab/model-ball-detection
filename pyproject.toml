@@ -5,7 +5,7 @@ keywords = ["evaluate", "neural", "networks"]
 description = "Library to train and evaluate neural networks."
 requires-python = ">=3.10"
 dependencies = [
-  "yolov5",
+  "torch", "torchvision",
 ]
 
 [[project.authors]]

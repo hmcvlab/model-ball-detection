@@ -12,7 +12,9 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import torch
 import yaml
+from torchvision import io, ops, utils
 from tqdm import tqdm
 from ultralytics import YOLO
 
@@ -24,26 +26,21 @@ def main(args: argparse.Namespace):
     if not file_coco.exists():
         coco2yolo(args.dir_dataset, file_coco)
 
-    model = YOLO(args.model)
+    model = YOLO(f"tmp/models/{args.model}", task="detect")
     model.train(data=file_coco, epochs=10, batch=4)
 
 
 def coco2yolo(dir_input: Path, file_out: Path):
-    """Merges coco.json files into a single ndjson file:
-    {
-        "type": "image",
-        "file": "image1.jpg",
-        "url": "https://www.url.com/path/to/image1.jpg",
-        "width": 640,
-        "height": 480,
-        "split": "train",
-        "annotations": {
-            "boxes": [
-                [0, 0.525, 0.376, 0.284, 0.418],
-                [1, 0.735, 0.298, 0.193, 0.337]
-            ]
-        }
-    }
+    """Convert coco.json files into ultralytics format
+    root:
+        images/
+            train/
+            val/
+            holdout/
+        labels/
+            train/
+            val/
+            holdout/
     """
     dir_root = file_out.parent
     dir_images = dir_root / "images"
@@ -54,11 +51,14 @@ def coco2yolo(dir_input: Path, file_out: Path):
 
     # Process each split
     coco_data = {}
-    names_split = ["train", "valid", "holdout"]
+    names_split = ["train", "val", "holdout"]
     for split in tqdm(names_split, desc="Convert dataset"):
 
+        # Rename split to yolo format valid -> val
+        file_stem = "valid" if split == "val" else split
+
         # Load COCO data
-        file = dir_input / f"{split}.coco.json"
+        file = dir_input / f"{file_stem}.coco.json"
         with open(file, "r", encoding="utf-8") as f:
             coco_data = json.load(f)
 
@@ -77,7 +77,7 @@ def coco2yolo(dir_input: Path, file_out: Path):
 
             # boxes: category_id, x, y, w, h
             cats = df4img["category_id"].to_list()
-            boxes = np.array(df4img["bbox"].to_list())
+            boxes = _boxes2cxcywh_normalized(df4img["bbox"].to_list(), img_row)
             annos = np.column_stack((cats, boxes)).tolist()
 
             # Copy image
@@ -85,7 +85,7 @@ def coco2yolo(dir_input: Path, file_out: Path):
             shutil.copy2(file_img, dir_images_name)
 
             # Generate txt-file with annotations
-            file_txt = dir_labels_name / file_img.with_suffix(".txt")
+            file_txt = dir_labels_name / f"{file_img.stem}.txt"
             np.savetxt(
                 file_txt,
                 annos,
@@ -94,13 +94,34 @@ def coco2yolo(dir_input: Path, file_out: Path):
                 newline="\n",
             )
 
+            # Draw sample
+            # if img_id == 1:
+            #     img = io.read_image(file_img)
+            #     boxes = ops.box_convert(boxes, in_fmt="cxcywh", out_fmt="xyxy")
+            #     img = utils.draw_bounding_boxes(img, boxes)
+            #     file_sample = Path(f"tmp/samples/yolo/{file_img.stem}.png")
+            #     file_sample.parent.mkdir(exist_ok=True, parents=True)
+            #     io.write_png(img, file_sample)
+
     # Export config
     data = {"path": str(dir_root)}
     for split in names_split:
-        data[split] = str(dir_labels.joinpath(split).relative_to(dir_root))
+        data[split] = str(dir_images.joinpath(split).relative_to(dir_root))
     data["names"] = {cat["id"]: cat["name"] for cat in coco_data["categories"]}
     with open(file_out, "w", encoding="utf-8") as f:
         yaml.dump(data, f, sort_keys=False)
+
+
+def _boxes2cxcywh_normalized(boxes: list[list[float]], img: pd.Series) -> np.ndarray:
+    """Convert boxes from xyxy to cxcywh normalized"""
+    width, height = img["width"], img["height"]
+    boxes_t = torch.Tensor(boxes)
+    boxes_t = ops.box_convert(boxes_t, in_fmt="xywh", out_fmt="cxcywh")
+    norm_factor = torch.Tensor([width, height, width, height])
+    boxes_t = boxes_t / norm_factor
+    assert boxes_t.max() <= 1
+    assert boxes_t.min() >= 0
+    return boxes_t.numpy()
 
 
 if __name__ == "__main__":

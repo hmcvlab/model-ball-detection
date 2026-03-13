@@ -15,7 +15,7 @@ from torchvision.transforms import v2
 
 
 @dataclass
-class ModelData:
+class Data:
     """Dataclass for model data, including weights and metadata."""
 
     ai_model: torch.nn.Module
@@ -30,7 +30,7 @@ class ModelData:
         self.ai_model = self.ai_model.to(self.device)
 
 
-def save(file: Path, weights: torch.nn.Module, model_data: ModelData):
+def save(file: Path, weights: torch.nn.Module, model_data: Data):
     """Structure data for export."""
     if not isinstance(weights, torch.nn.Module):
         raise ValueError("Weights must be a torch.nn.Module")
@@ -41,7 +41,7 @@ def save(file: Path, weights: torch.nn.Module, model_data: ModelData):
     torch.save(output, file)
 
 
-def load_from_torchvision(name: str, device: str) -> ModelData:
+def load_from_torchvision(name: str, device: str) -> Data:
     """Load models either from file or from torchvision."""
     logger.info(f"Loading model for {name}...")
 
@@ -57,7 +57,7 @@ def load_from_torchvision(name: str, device: str) -> ModelData:
     weights_enum = models.get_model_weights(name)
     weights = models.get_weight(f"{weights_enum.__name__}.COCO_V1")
 
-    return ModelData(
+    return Data(
         ai_model=model,
         name=name,
         source="torch",
@@ -67,7 +67,7 @@ def load_from_torchvision(name: str, device: str) -> ModelData:
     )
 
 
-def load_from_torchhub(repo: str, model_name: str, device: str) -> ModelData:
+def load_from_torchhub(repo: str, model_name: str, device: str) -> Data:
     """Load model from torchhub."""
 
     repo_models = torch.hub.list(repo)
@@ -79,7 +79,7 @@ def load_from_torchhub(repo: str, model_name: str, device: str) -> ModelData:
     torch.hub.set_dir(dir_models)
     model = torch.hub.load(repo, model_name, pretrained=True, trust_repo=True)
 
-    return ModelData(
+    return Data(
         ai_model=model,
         name=model_name,
         source="torchhub",
@@ -89,25 +89,24 @@ def load_from_torchhub(repo: str, model_name: str, device: str) -> ModelData:
     )
 
 
-def load_from_file(file_model: Path, device: str) -> ModelData:
+def load_from_file(file_model: Path, device: str) -> Data:
     """Load model from pth file."""
     logger.info(f"Loading model from {file_model}")
     model_data = torch.load(file_model, weights_only=False, map_location=device)
     model_data["source"] = "file"
     model_data["name"] = file_model.stem
     model_data["transforms"] = [v2.ToImage(), v2.ToDtype(torch.float, scale=True)]
-    return ModelData(**model_data)
+    return Data(**model_data)
 
 
-def filename(dir_output: Path, name: str):
+def filename(dir_output: Path, name: str) -> Path:
     """Add a suffix wit an index if the output folder already exists."""
 
-    file_new = None
-    for idx in range(100):
-        file_new = dir_output / f"{name}_{idx:02d}.pth"
+    file_new = dir_output / f"{name}_00.pth"
+    for idx in range(1, 99, 0):
         if not file_new.exists():
-            break
+            logger.info(f"Output file: {file_new}")
+            return file_new
+        file_new = dir_output / f"{name}_{idx:02d}.pth"
 
-    logger.info(f"Output file: {file_new}")
-    dir_output.mkdir(parents=True, exist_ok=True)
-    return file_new
+    raise ValueError("Unable to find a non-existing output file!")

@@ -33,7 +33,7 @@ def test_load_from_torch(architecture):
     ai_model = model.load_from_torchvision(architecture)
 
     # Assert
-    assert isinstance(ai_model, model.ModelData)
+    assert isinstance(ai_model, model.Data)
     assert ai_model.name == architecture
 
 
@@ -49,7 +49,7 @@ def test_load_from_torchhub(repo, model_name):
     ai_model = model.load_from_torchhub(repo, model_name)
 
     # Assert
-    assert isinstance(ai_model, model.ModelData)
+    assert isinstance(ai_model, model.Data)
     assert ai_model.name == model_name
 
 
@@ -72,7 +72,7 @@ def test_load_from_file(architecture, tmp_path):
     model_data = model.load_from_file(filename)
 
     # Assert
-    assert isinstance(model_data, model.ModelData)
+    assert isinstance(model_data, model.Data)
     assert model_data.name == f"{architecture}_00"
     try:
         model_data.ai_model.eval()
