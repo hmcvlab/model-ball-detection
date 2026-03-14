@@ -60,6 +60,7 @@ def inference_torch(
         data_loader: A PyTorch data loader for the COCO dataset.
     """
     ai_model = model_data.ai_model
+    ai_model.to(model_data.device)
     ai_model.eval()
 
     results = []
@@ -116,7 +117,7 @@ def run_eval(file_holdout: Path, results: list[dict]) -> dict:
 
     coco_dt = coco_gt.loadRes(results)
     coco_eval = COCOeval(coco_gt, coco_dt, iouType="bbox")
-    coco_eval.params.useCats = 0
+    coco_eval.params.useCats = 1
     coco_eval.evaluate()
     coco_eval.accumulate()
     coco_eval.summarize()

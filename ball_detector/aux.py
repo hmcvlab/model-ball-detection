@@ -12,6 +12,13 @@ from torchvision.transforms import v2
 DATA_ROOT = Path("/mnt/data")
 
 
+def file_benchmark(file_holdout: Path):
+    """Return path to benchmark file."""
+    return DATA_ROOT / f"analysis/{file_holdout.parent.stem}_benchmark.csv".replace(
+        "-", "_"
+    )
+
+
 def to_device(images: list[torch.Tensor], targets: list[dict], device: str):
     """Move images and targets to device."""
     keys = ["boxes", "labels"]

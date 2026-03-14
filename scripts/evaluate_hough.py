@@ -20,10 +20,8 @@ ROOT = Path(__file__).parent
 def main(args: argparse.Namespace):
     """Entrypoint: run --help for details."""
     logger.info("Start evaluation...")
+    file_benchmark = aux.file_benchmark(args.holdout)
 
-    file_benchmark = (
-        aux.DATA_ROOT / f"analysis/{args.holdout.parent.stem}_benchmark.csv"
-    )
     # Load dataset
     transforms = [v2.ToPILImage()]
     loader = aux.load_dataset(args.holdout, transforms=transforms, shuffle=False)

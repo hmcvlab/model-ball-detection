@@ -27,9 +27,7 @@ def main(args: argparse.Namespace):
         for file in args.file_model.parent.glob(args.file_model.name)
     ]
 
-    file_benchmark = (
-        aux.DATA_ROOT / f"analysis/{args.holdout.parent.stem}_benchmark.csv"
-    )
+    file_benchmark = aux.file_benchmark(args.holdout)
     for model_data in ai_models:
         # Load dataset
         transforms = model_data.transforms

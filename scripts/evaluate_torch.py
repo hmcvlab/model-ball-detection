@@ -31,9 +31,7 @@ def main(args: argparse.Namespace):
     else:
         raise ValueError("Either --file-model or --default-model must be set.")
 
-    file_benchmark = (
-        aux.DATA_ROOT / f"analysis/{args.holdout.parent.stem}_benchmark.csv"
-    )
+    file_benchmark = aux.file_benchmark(args.holdout)
     for model_data in ai_models:
         # Load dataset
         transforms = model_data.transforms
@@ -42,9 +40,11 @@ def main(args: argparse.Namespace):
         # Run inference
         try:
             results = coco.inference_torch(model_data, loader)
-        except ValueError as e:
-            logger.error(e)
-            continue
+        except RuntimeError:
+            # Try again on cpu
+            logger.warning(f"Trying to run {model_data.name} on cpu...")
+            model_data.device = "cpu"
+            results = coco.inference_torch(model_data, loader)
 
         # Run COCO evaluation
         stats_coco = coco.run_eval(args.holdout, results)
