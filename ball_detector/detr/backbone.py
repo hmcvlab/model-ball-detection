@@ -200,4 +200,3 @@ class Joiner(nn.Sequential):
             pos.append(self[1](x).to(x.tensors.dtype))
 
         return out, pos
-
