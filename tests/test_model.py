@@ -1,6 +1,6 @@
 """
 Created on 2026-03-07
-Copyright (c) 2026 robominds GmbH
+Copyright (c) 2026 Munich University of Applied Sciences
 
 Test model helper functions.
 """
