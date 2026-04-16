@@ -18,11 +18,11 @@ from ball_detector import aux, model, train
 def main(args: argparse.Namespace):
     """Entrypoint: run --help for details."""
     logger.info("Start training...")
-    t_file = args.dataset / "train.coco.json"
-    v_file = args.dataset / "valid.coco.json"
+    t_file = args.file_train
+    v_file = args.file_train.parent / args.file_train.name.replace("train", "valid")
 
     # Load transformations
-    aug_params = aux.Augmentation()
+    aug_params = train.Augmentation()
 
     # Load model
     if args.file_model:
@@ -41,7 +41,7 @@ def main(args: argparse.Namespace):
     t_transforms = model_data.transforms
     if args.augment:
         model_data.with_augmentation = True
-        t_transforms += aux.augmentation_transforms(aug_params)
+        t_transforms += train.augmentation_transforms(aug_params)
 
     # Load dataset
     t_loader = aux.load_dataset(t_file, t_transforms, shuffle=True)
@@ -56,7 +56,9 @@ def main(args: argparse.Namespace):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--dataset", type=Path, default=aux.DATA_ROOT / "datasets/accurate-balls"
+        "--file-train",
+        type=Path,
+        default=aux.DATA_ROOT / "datasets/accurate-balls/train.coco.json",
     )
     parser.add_argument(
         "--dir-output", type=Path, default=aux.DATA_ROOT / "models/torch"

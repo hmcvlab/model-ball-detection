@@ -21,7 +21,7 @@ def main(args: argparse.Namespace):
     v_file = args.dataset / "valid.coco.json"
 
     # Load transformations
-    aug_params = aux.Augmentation()
+    aug_params = train.Augmentation()
 
     # Load model
     model_data = model.load_from_file(args.model, args.device)
@@ -35,7 +35,7 @@ def main(args: argparse.Namespace):
     t_transforms = model_data.transforms
     if args.augment:
         model_data.with_augmentation = True
-        t_transforms += aux.augmentation_transforms(aug_params)
+        t_transforms += train.augmentation_transforms(aug_params)
 
     # Load dataset
     t_loader = aux.load_dataset(t_file, t_transforms, shuffle=True)
