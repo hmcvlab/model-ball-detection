@@ -6,6 +6,7 @@ description = "Library to train and evaluate neural networks."
 requires-python = ">=3.10"
 dependencies = [
   "torch", "torchvision",
+  "detr @ git+https://github.com/behretv/detr.git",
 ]
 
 [[project.authors]]

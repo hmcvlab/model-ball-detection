@@ -15,11 +15,10 @@
     "remoteUser": "ubuntu",
     "runArgs": [
         "--gpus=all",
-        "--net=host",
         "--shm-size=20g"
     ],
     "mounts": [
         "source=/mnt,target=/mnt,type=bind,consistency=cached",
-        "source=/tmp,target=/tmp,type=bind,consistency=cached",
+        "source=/tmp,target=/tmp,type=bind,consistency=cached"
     ]
 }
