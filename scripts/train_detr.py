@@ -9,9 +9,8 @@ import argparse
 import json
 from pathlib import Path
 
+from detr import aux, model, parameters, train
 from loguru import logger
-
-from ball_detector import aux, model, train
 
 
 def main(args: argparse.Namespace):
@@ -41,7 +40,9 @@ def main(args: argparse.Namespace):
     t_loader = aux.load_dataset(t_file, t_transforms, shuffle=True)
     v_loader = aux.load_dataset(v_file, model_data.transforms, shuffle=False)
 
-    new_model_data = train.run(model_data, t_loader, v_loader, params=train.Parameter())
+    new_model_data = train.run(
+        model_data, t_loader, v_loader, params=parameters.Train()
+    )
 
     # Export model + logs
     new_model_data.export(args.dir_output / model_data.name)
