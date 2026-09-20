@@ -25,8 +25,7 @@ The models are trained and evaluated on the
 COCO format, split into train (559), valid (126) and holdout/test (74) sets.
 
 Download and extract `accurate-ball-detection.zip` from Zenodo. The scripts
-expect the dataset at `/mnt/data/datasets/accurate-balls/` by default (see
-`ball_detector/aux.py`), i.e.:
+expect the dataset at `/mnt/data/datasets/accurate-balls/` by default, i.e.:
 
 ```
 /mnt/data/datasets/accurate-balls/
@@ -36,8 +35,20 @@ expect the dataset at `/mnt/data/datasets/accurate-balls/` by default (see
 └── holdout.coco.json
 ```
 
-All paths can be overridden via command line arguments — run any script with
-`--help` for details.
+### Configuration
+
+All default paths are defined as constants at the top of
+`ball_detector/aux.py` — adjust them to your local setup:
+
+```python
+DATA_ROOT = Path("/mnt/data")                        # base directory
+DATASET_DIR = DATA_ROOT / "datasets/accurate-balls"  # dataset location
+MODEL_DIR = DATA_ROOT / "models"                     # trained model weights
+ANALYSIS_DIR = DATA_ROOT / "analysis"                # benchmark results
+```
+
+Every path can also be overridden per run via command line arguments — run
+any script with `--help` for details.
 
 ## Installation
 

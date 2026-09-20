@@ -55,10 +55,10 @@ def main(args: argparse.Namespace):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--dataset", type=Path, default=aux.DATA_ROOT / "datasets/accurate-balls"
+        "--dataset", type=Path, default=aux.DATASET_DIR
     )
     parser.add_argument(
-        "--dir-output", type=Path, default=aux.DATA_ROOT / "models/torch"
+        "--dir-output", type=Path, default=aux.MODEL_DIR / "torch"
     )
     parser.add_argument("--augment", action="store_true", default=False)
     parser.add_argument("--device", choices=["cpu", "cuda"], default="cuda")
@@ -66,7 +66,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--model",
         type=Path,
-        default=aux.DATA_ROOT / "models/detr/detr-r50-e632da11.pth",
+        default=aux.MODEL_DIR / "detr/detr-r50-e632da11.pth",
     )
 
     # Add training paramater from dataclass

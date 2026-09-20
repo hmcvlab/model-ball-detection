@@ -58,10 +58,10 @@ if __name__ == "__main__":
     parser.add_argument(
         "--file-train",
         type=Path,
-        default=aux.DATA_ROOT / "datasets/accurate-balls/train.coco.json",
+        default=aux.DATASET_DIR / "train.coco.json",
     )
     parser.add_argument(
-        "--dir-output", type=Path, default=aux.DATA_ROOT / "models/torch"
+        "--dir-output", type=Path, default=aux.MODEL_DIR / "torch"
     )
     parser.add_argument("--augment", action="store_true", default=False)
     parser.add_argument("--device", choices=["cpu", "cuda"], default="cuda")

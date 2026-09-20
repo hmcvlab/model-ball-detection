@@ -18,6 +18,8 @@ import pandas as pd
 from loguru import logger
 from tqdm import tqdm
 
+from ball_detector import aux
+
 
 def main(args: argparse.Namespace) -> None:
     """Search recursively for zip files and generate UUIDs for all images."""
@@ -79,7 +81,7 @@ def main(args: argparse.Namespace) -> None:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--source", default="/mnt/data/datasets/accurate-balls", type=Path
+        "--source", default=aux.DATASET_DIR, type=Path
     )
     parser.add_argument("--debug", action="store_true")
     main(parser.parse_args())

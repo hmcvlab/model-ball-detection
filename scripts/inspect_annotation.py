@@ -12,7 +12,7 @@ from torchvision import datasets, utils
 from torchvision.transforms import v2
 from tqdm import tqdm
 
-from ball_detector import draw
+from ball_detector import aux, draw
 
 
 def main(args: argparse.Namespace) -> None:
@@ -72,7 +72,7 @@ if __name__ == "__main__":
         "--file",
         type=Path,
         help="Path to COCO <name>.coco.json",
-        default="/mnt/data/datasets/accurate-balls/train.coco.json",
+        default=aux.DATASET_DIR / "train.coco.json",
     )
     parser.add_argument(
         "--samples", type=int, help="Number of samples to visualize", default=1

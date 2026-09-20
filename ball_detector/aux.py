@@ -9,12 +9,18 @@ import torch
 from torchvision import datasets
 from torchvision.transforms import v2
 
+# Machine-specific configuration -- adjust these paths to your local setup.
+# All script defaults derive from these constants and can still be
+# overridden via command line arguments.
 DATA_ROOT = Path("/mnt/data")
+DATASET_DIR = DATA_ROOT / "datasets/accurate-balls"
+MODEL_DIR = DATA_ROOT / "models"
+ANALYSIS_DIR = DATA_ROOT / "analysis"
 
 
 def file_benchmark(file_holdout: Path):
     """Return path to benchmark file."""
-    return DATA_ROOT / f"analysis/{file_holdout.parent.stem}_benchmark.csv".replace(
+    return ANALYSIS_DIR / f"{file_holdout.parent.stem}_benchmark.csv".replace(
         "-", "_"
     )
 

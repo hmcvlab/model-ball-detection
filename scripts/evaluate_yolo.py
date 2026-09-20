@@ -76,7 +76,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--holdout",
         type=Path,
-        default=aux.DATA_ROOT / "datasets/accurate-balls/holdout.coco.json",
+        default=aux.DATASET_DIR / "holdout.coco.json",
     )
     parser.add_argument("--device", choices=["cpu", "cuda"], default="cuda")
 

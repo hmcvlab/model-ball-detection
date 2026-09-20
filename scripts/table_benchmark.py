@@ -159,6 +159,6 @@ if __name__ == "__main__":
     parser.add_argument(
         "--file-holdout",
         type=str,
-        default=aux.DATA_ROOT / "datasets/accurate-balls/holdout.coco.json",
+        default=aux.DATASET_DIR / "holdout.coco.json",
     )
     main(parser.parse_args())
