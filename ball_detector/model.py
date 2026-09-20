@@ -96,7 +96,7 @@ def load_from_torchhub(repo: str, model_name: str, device: str) -> Data:
 def load_from_file(file_model: Path, device: str) -> Data:
     """Load model from pth file."""
     logger.info(f"Loading model from {file_model}")
-    model_data = torch.load(file_model, weights_only=False, map_location=device)
+    model_data = torch.load(file_model, weights_only=False, map_location="cpu")
 
     # Handle custom model files differently
     if "train_args" in model_data:
