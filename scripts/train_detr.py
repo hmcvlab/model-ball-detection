@@ -7,6 +7,8 @@ Script to train a PyTorch model for object detection.
 
 import argparse
 import json
+import typing
+from dataclasses import fields
 from pathlib import Path
 
 from detr import aux, model, parameters, train
@@ -21,6 +23,7 @@ def main(args: argparse.Namespace):
 
     # Load transformations
     aug_params = train.Augmentation()
+    train_params = parameters.Train.from_args(args)
 
     # Load model
     model_data = model.load_from_file(args.model, args.device)
@@ -40,11 +43,12 @@ def main(args: argparse.Namespace):
     t_loader = aux.load_dataset(t_file, t_transforms, shuffle=True)
     v_loader = aux.load_dataset(v_file, model_data.transforms, shuffle=False)
 
-    new_model_data = train.run(
-        model_data, t_loader, v_loader, params=parameters.Train()
-    )
+    new_model_data = train.run(model_data, t_loader, v_loader, params=train_params)
 
     # Export model + logs
+    logger.info(
+        f"Training completed. Exporting model to {args.dir_output / model_data.name}"
+    )
     new_model_data.export(args.dir_output / model_data.name)
 
 
@@ -59,11 +63,17 @@ if __name__ == "__main__":
     parser.add_argument("--augment", action="store_true", default=False)
     parser.add_argument("--device", choices=["cpu", "cuda"], default="cuda")
 
-    group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument(
+    parser.add_argument(
         "--model",
         type=Path,
-        default=aux.DATA_ROOT / "models/detr/models/detr-r50-e632da11.pth",
+        default=aux.DATA_ROOT / "models/detr/detr-r50-e632da11.pth",
     )
+
+    # Add training paramater from dataclass
+    type_hints = typing.get_type_hints(parameters.Train)
+    for field in fields(parameters.Train):
+        parser.add_argument(
+            f"--{field.name}", type=type_hints[field.name], default=field.default
+        )
 
     main(parser.parse_args())
