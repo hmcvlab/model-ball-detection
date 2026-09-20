@@ -80,8 +80,6 @@ def main(args: argparse.Namespace) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--source", default=aux.DATASET_DIR, type=Path
-    )
+    parser.add_argument("--source", default=aux.DATASET_DIR, type=Path)
     parser.add_argument("--debug", action="store_true")
     main(parser.parse_args())

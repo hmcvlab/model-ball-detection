@@ -42,7 +42,7 @@ def main(args: argparse.Namespace):
         ul_model = RTDETR(file_model_base)
     else:
         raise ValueError(f"Unknown model {args.model}")
-    ul_model.train(data=file_coco, epochs=10, batch=4)
+    ul_model.train(data=file_coco, epochs=10, batch=4, seed=args.seed)
     ul_model.save(file_model_tuned)
 
 
@@ -69,7 +69,6 @@ def coco2yolo(dir_input: Path, file_out: Path):
     coco_data = {}
     names_split = ["train", "val", "holdout"]
     for split in tqdm(names_split, desc="Convert dataset"):
-
         # Rename split to yolo format valid -> val
         file_stem = "valid" if split == "val" else split
 
@@ -171,7 +170,6 @@ if __name__ == "__main__":
         help="Input path",
         default=aux.DATASET_DIR,
     )
-    parser.add_argument(
-        "--dir-output", type=Path, default=aux.MODEL_DIR / "torch"
-    )
+    parser.add_argument("--dir-output", type=Path, default=aux.MODEL_DIR / "torch")
+    parser.add_argument("--seed", type=int, default=0)
     main(parser.parse_args())

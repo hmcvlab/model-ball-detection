@@ -126,9 +126,7 @@ def main(args: argparse.Namespace):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset", type=Path, default=aux.DATASET_DIR)
-    parser.add_argument(
-        "--dir-output", type=Path, default=aux.MODEL_DIR / "detr"
-    )
+    parser.add_argument("--dir-output", type=Path, default=aux.MODEL_DIR / "detr")
     parser.add_argument("--augment", action="store_true", default=False)
     parser.add_argument("--device", choices=["cpu", "cuda"], default="cuda")
     parser.add_argument(

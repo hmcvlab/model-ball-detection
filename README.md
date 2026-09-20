@@ -41,13 +41,13 @@ All default paths are defined as constants at the top of
 `ball_detector/aux.py` — adjust them to your local setup:
 
 ```python
-DATA_ROOT = Path("/mnt/data")                        # base directory
+DATA_ROOT = Path("/mnt/data")  # base directory
 DATASET_DIR = DATA_ROOT / "datasets/accurate-balls"  # dataset location
-MODEL_DIR = DATA_ROOT / "models"                     # trained model weights
-ANALYSIS_DIR = DATA_ROOT / "analysis"                # benchmark results
+MODEL_DIR = DATA_ROOT / "models"  # trained model weights
+ANALYSIS_DIR = DATA_ROOT / "analysis"  # benchmark results
 ```
 
-Every path can also be overridden per run via command line arguments — run
+Every path can also be overridden per run via command line arguments. Run
 any script with `--help` for details.
 
 ## Installation
@@ -63,10 +63,10 @@ This pulls in `torch`, `torchvision` and a
 
 ## Repository structure
 
-- `ball_detector/` — library code (COCO dataset handling, model builders,
+- `ball_detector/`: library code (COCO dataset handling, model builders,
   training loop, Hough baseline, drawing utilities)
-- `scripts/` — entry points for training, evaluation and benchmark generation
-- `tests/` — unit tests (`pytest`)
+- `scripts/`: entry points for training, evaluation and benchmark generation
+- `tests/`: unit tests (`pytest`)
 
 ## Usage
 

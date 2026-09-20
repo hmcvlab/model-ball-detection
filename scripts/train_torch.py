@@ -45,11 +45,11 @@ def main(args: argparse.Namespace):
 
     # Load dataset
     t_loader = aux.load_dataset(
-        t_file, t_transforms, shuffle=True, batch_size=args.batch_size
+        t_file, t_transforms, shuffle=True, batch_size=args.batch_size, seed=args.seed
     )
     v_loader = aux.load_dataset(v_file, model_data.transforms, shuffle=False)
 
-    params = train.Parameter(accum_steps=args.accum_steps)
+    params = train.Parameter(accum_steps=args.accum_steps, seed=args.seed)
     new_model_data = train.run(model_data, t_loader, v_loader, params=params)
 
     # Export model + logs
@@ -73,6 +73,7 @@ if __name__ == "__main__":
         default=1,
         help="Gradient accumulation steps (effective batch = batch_size * accum_steps)",
     )
+    parser.add_argument("--seed", type=int, default=train.SEED)
 
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--file-model", type=Path)

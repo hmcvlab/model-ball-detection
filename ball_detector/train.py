@@ -25,6 +25,7 @@ class Parameter:
     epochs: int = 10
     batch_size: int = 4
     accum_steps: int = 1
+    seed: int = SEED
     lr: float = 0.0001
     weight_decay: float = 0.01
     warmup_epochs: int = 0
@@ -64,6 +65,7 @@ def run(
 ) -> model.Data:
     """Train a torch model using the given data loaders."""
     logger.info(f"Start training of {model_data.name} model...")
+    torch.manual_seed(params.seed)
     ai_model = model_data.ai_model
     optimizer = torch.optim.AdamW(
         [p for p in ai_model.parameters() if p.requires_grad],

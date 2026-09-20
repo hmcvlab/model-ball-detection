@@ -36,6 +36,7 @@ def load_dataset(
     transforms: list[v2.Transform] | v2.Compose,
     shuffle=True,
     batch_size: int = 4,
+    seed: int = 42,
 ):
     """Wrapper for torch-based dataset"""
     transforms = v2.Compose(transforms) if isinstance(transforms, list) else transforms
@@ -44,12 +45,16 @@ def load_dataset(
         dataset_coco, target_keys=("boxes", "labels", "image_id")
     )
 
+    generator = torch.Generator()
+    generator.manual_seed(seed)
+
     return torch.utils.data.DataLoader(
         dataset_coco,
         batch_size=batch_size,
         shuffle=shuffle,
         num_workers=8,
         collate_fn=_collate_fn,
+        generator=generator,
     )
 
 
