@@ -20,9 +20,7 @@ ANALYSIS_DIR = DATA_ROOT / "analysis"
 
 def file_benchmark(file_holdout: Path):
     """Return path to benchmark file."""
-    return ANALYSIS_DIR / f"{file_holdout.parent.stem}_benchmark.csv".replace(
-        "-", "_"
-    )
+    return ANALYSIS_DIR / f"{file_holdout.parent.stem}_benchmark.csv".replace("-", "_")
 
 
 def to_device(images: list[torch.Tensor], targets: list[dict], device: str):
@@ -33,7 +31,12 @@ def to_device(images: list[torch.Tensor], targets: list[dict], device: str):
     return images, targets
 
 
-def load_dataset(file: Path, transforms: list[v2.Transform] | v2.Compose, shuffle=True):
+def load_dataset(
+    file: Path,
+    transforms: list[v2.Transform] | v2.Compose,
+    shuffle=True,
+    batch_size: int = 4,
+):
     """Wrapper for torch-based dataset"""
     transforms = v2.Compose(transforms) if isinstance(transforms, list) else transforms
     dataset_coco = datasets.CocoDetection(file.parent, str(file), transforms=transforms)
@@ -43,7 +46,7 @@ def load_dataset(file: Path, transforms: list[v2.Transform] | v2.Compose, shuffl
 
     return torch.utils.data.DataLoader(
         dataset_coco,
-        batch_size=4,
+        batch_size=batch_size,
         shuffle=shuffle,
         num_workers=8,
         collate_fn=_collate_fn,

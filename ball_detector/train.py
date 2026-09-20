@@ -24,6 +24,7 @@ class Parameter:
 
     epochs: int = 10
     batch_size: int = 4
+    accum_steps: int = 1
     lr: float = 0.0001
     weight_decay: float = 0.01
     warmup_epochs: int = 0
@@ -92,18 +93,19 @@ def run(
         progress_bar = tqdm(train_loader, desc="Batch", unit="batch", leave=False)
 
         ai_model.train()
+        optimizer.zero_grad()
         for step, (images, targets) in enumerate(progress_bar):
             images, targets = aux.to_device(images, targets, model_data.device)
 
             loss_dict = ai_model(images, targets)
             losses = sum(loss for loss in loss_dict.values())
 
-            optimizer.zero_grad()
-            losses.backward()
-            optimizer.step()
-
-            if scheduler is not None:
-                scheduler.step()
+            (losses / params.accum_steps).backward()
+            if (step + 1) % params.accum_steps == 0 or step + 1 == len(train_loader):
+                optimizer.step()
+                optimizer.zero_grad()
+                if scheduler is not None:
+                    scheduler.step()
 
             running_loss += losses.item()
 
@@ -114,7 +116,7 @@ def run(
             )
 
         n_batches = len(train_loader)
-        avg_val_loss = _validate(ai_model, val_loader)
+        avg_val_loss = _validate(ai_model, val_loader, model_data.device)
 
         logs.append(
             {
@@ -133,7 +135,7 @@ def run(
     return model_data
 
 
-def _validate(ai_model, loader: torch.utils.data.DataLoader):
+def _validate(ai_model, loader: torch.utils.data.DataLoader, device: str):
     """Run validation loop and return average validation loss.
 
     Args:
@@ -149,7 +151,7 @@ def _validate(ai_model, loader: torch.utils.data.DataLoader):
     val_loss = 0.0
     with torch.no_grad():
         for images, targets in loader:
-            images, targets = aux.to_device(images, targets, ai_model.device)
+            images, targets = aux.to_device(images, targets, device)
             loss_dict = ai_model(images, targets)
             losses = sum(loss_dict.values())
             val_loss += losses.item()

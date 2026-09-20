@@ -1,4 +1,4 @@
-.PHONY: format lint test
+.PHONY: format lint test install-hooks
 
 format:
 	docker run --rm \

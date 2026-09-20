@@ -44,10 +44,13 @@ def main(args: argparse.Namespace):
         t_transforms += train.augmentation_transforms(aug_params)
 
     # Load dataset
-    t_loader = aux.load_dataset(t_file, t_transforms, shuffle=True)
+    t_loader = aux.load_dataset(
+        t_file, t_transforms, shuffle=True, batch_size=args.batch_size
+    )
     v_loader = aux.load_dataset(v_file, model_data.transforms, shuffle=False)
 
-    new_model_data = train.run(model_data, t_loader, v_loader, params=train.Parameter())
+    params = train.Parameter(accum_steps=args.accum_steps)
+    new_model_data = train.run(model_data, t_loader, v_loader, params=params)
 
     # Export model + logs
     new_model_data.export(args.dir_output / model_data.name)
@@ -60,11 +63,16 @@ if __name__ == "__main__":
         type=Path,
         default=aux.DATASET_DIR / "train.coco.json",
     )
-    parser.add_argument(
-        "--dir-output", type=Path, default=aux.MODEL_DIR / "torch"
-    )
+    parser.add_argument("--dir-output", type=Path, default=aux.MODEL_DIR / "torch")
     parser.add_argument("--augment", action="store_true", default=False)
     parser.add_argument("--device", choices=["cpu", "cuda"], default="cuda")
+    parser.add_argument("--batch-size", type=int, default=4)
+    parser.add_argument(
+        "--accum-steps",
+        type=int,
+        default=1,
+        help="Gradient accumulation steps (effective batch = batch_size * accum_steps)",
+    )
 
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--file-model", type=Path)
